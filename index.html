@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>My Music Seraphiym — Beat Maker & Mixer</title>
+<style>
+:root{--bg:#10131c;--panel:#1b2133;--panel2:#232c45;--gold:#e6b94f;--cream:#f5efe0;--muted:#aab3c5;--line:#39415e;--on:#e6b94f;--off:#2b3350;--now:#7dd3fc}
+*{box-sizing:border-box}body{margin:0;font-family:Arial,Helvetica,sans-serif;background:var(--bg);color:var(--cream)}
+header{padding:18px 16px 8px;text-align:center}h1{margin:0;font-size:26px;color:var(--gold)}p.sub{color:var(--muted);margin:6px 0 0}
+main{max-width:980px;margin:0 auto;padding:12px}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:14px;margin:12px 0}
+.row{display:flex;flex-wrap:wrap;gap:10px;align-items:center}
+button{background:var(--gold);color:#171106;border:0;border-radius:10px;padding:11px 16px;font-weight:700;font-size:16px}
+button.secondary{background:var(--panel2);color:var(--cream);border:1px solid var(--line)}
+select,input[type=range]{accent-color:var(--gold)}
+label{font-size:14px;color:var(--muted)}
+.grid{display:grid;grid-template-columns:86px repeat(16,1fr);gap:5px;align-items:center;margin-top:10px}
+.trackname{font-weight:700;font-size:14px}
+.step{height:34px;border-radius:8px;border:1px solid var(--line);background:var(--off);padding:0}
+.step.on{background:var(--on)}
+.step.now{outline:3px solid var(--now)}
+.step.beat{background:#343e63}.step.beat.on{background:var(--on)}
+.mixer{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:12px}
+.mix{background:var(--panel2);border-radius:12px;padding:10px}.mix b{display:block;margin-bottom:6px}
+.keys{display:flex;gap:4px;overflow-x:auto;padding-bottom:6px}
+.key{min-width:52px;height:120px;background:#f8f5ec;color:#111;border-radius:0 0 8px 8px;border:1px solid #999;font-weight:700}
+.key.black{background:#111;color:#fff;height:82px;min-width:42px}
+.strings{display:grid;grid-template-columns:repeat(auto-fit,minmax(92px,1fr));gap:8px}
+.note{background:var(--panel2);color:var(--cream);border:1px solid var(--line)}
+.small{font-size:13px;color:var(--muted)}
+@media(max-width:640px){.grid{grid-template-columns:64px repeat(16,1fr);gap:3px}.step{height:28px}.trackname{font-size:12px}h1{font-size:22px}}
+</style>
+</head>
+<body>
+<header>
+<h1>My Music Seraphiym</h1>
+<p class="sub">Simple beat maker &amp; music mixer — piano, banjo, drums, and bass.</p>
+</header>
+<main>
+<section class="panel">
+<div class="row">
+<button id="playBtn">▶ Play</button>
+<button class="secondary" id="clearBtn">Clear</button>
+<label>Preset
+<select id="preset">
+<option value="southern">Southern Groove</option>
+<option value="porch">Porch Stomp</option>
+<option value="gospel">Gospel Lift</option>
+<option value="empty">Empty</option>
+</select></label>
+<label>Tempo <span id="bpmVal">92</span> BPM
+<input id="bpm" type="range" min="60" max="160" value="92"></label>
+<label>Master
+<input id="master" type="range" min="0" max="100" value="80"></label>
+</div>
+<p class="small">Tap squares to build the beat. The music follows Am – F – C – G, four steps per chord.</p>
+<div id="grid" class="grid"></div>
+</section>
+
+<section class="panel">
+<h2>Mixer</h2>
+<div class="mixer" id="mixer"></div>
+</section>
+
+<section class="panel">
+<h2>Piano</h2>
+<div class="keys" id="piano"></div>
+</section>
+
+<section class="panel">
+<h2>Banjo strings</h2>
+<div class="strings" id="banjo"></div>
+</section>
+
+<section class="panel">
+<h2>Bass notes</h2>
+<div class="strings" id="bass"></div>
+</section>
+</main>
+<script>
+const tracks=["Kick","Snare","Hat","Bass","Banjo","Piano"];
+const steps=16;
+let pattern={};
+let volumes={Kick:.9,Snare:.8,Hat:.55,Bass:.85,Banjo:.8,Piano:.75};
+let muted={};
+let ctx=null,masterGain=null,trackGains={},playing=false,currentStep=0,nextTime=0,timer=null;
+const chords=[
+ {root:110.00,notes:[220,261.63,329.63],name:"Am"},
+ {root:87.31,notes:[174.61,220,261.63],name:"F"},
+ {root:130.81,notes:[261.63,329.63,392],name:"C"},
+ {root:98.00,notes:[196,246.94,293.66],name:"G"}
+];
+const presets={
+ southern:{Kick:[0,4,8,12],Snare:[4,12],Hat:[0,2,4,6,8,10,12,14],Bass:[0,4,8,12],Banjo:[0,3,6,8,11,14],Piano:[0,8]},
+ porch:{Kick:[0,6,8,14],Snare:[4,12],Hat:[2,6,10,14],Bass:[0,6,8,14],Banjo:[0,2,4,6,8,10,12,14],Piano:[4,12]},
+ gospel:{Kick:[0,4,8,12],Snare:[4,12],Hat:[0,4,8,12],Bass:[0,8],Banjo:[2,6,10,14],Piano:[0,4,8,12]},
+ empty:{Kick:[],Snare:[],Hat:[],Bass:[],Banjo:[],Piano:[]}
+};
+function loadPreset(name){
+ pattern={};tracks.forEach(t=>{pattern[t]=Array(steps).fill(false);(presets[name][t]||[]).forEach(s=>pattern[t][s]=true);});
+ drawGrid();
+}
+function ensureAudio(){
+ if(ctx)return;
+ ctx=new (window.AudioContext||window.webkitAudioContext)();
+ masterGain=ctx.createGain();masterGain.gain.value=document.getElementById('master').value/100;masterGain.connect(ctx.destination);
+ tracks.forEach(t=>{const g=ctx.createGain();g.gain.value=volumes[t];g.connect(masterGain);trackGains[t]=g;});
+}
+function noiseBuffer(){const b=ctx.createBuffer(1,ctx.sampleRate*1,ctx.sampleRate);const d=b.getChannelData(0);for(let i=0;i<d.length;i++)d[i]=Math.random()*2-1;return b;}
+let cachedNoise=null;
+function playKick(t){const o=ctx.createOscillator(),g=ctx.createGain();o.frequency.setValueAtTime(150,t);o.frequency.exponentialRampToValueAtTime(45,t+.12);g.gain.setValueAtTime(1,t);g.gain.exponentialRampToValueAtTime(.001,t+.22);o.connect(g);g.connect(trackGains.Kick);o.start(t);o.stop(t+.24);}
+function playSnare(t){if(!cachedNoise)cachedNoise=noiseBuffer();const n=ctx.createBufferSource();n.buffer=cachedNoise;const f=ctx.createBiquadFilter();f.type='highpass';f.frequency.value=1200;const g=ctx.createGain();g.gain.setValueAtTime(.7,t);g.gain.exponentialRampToValueAtTime(.001,t+.16);n.connect(f);f.connect(g);g.connect(trackGains.Snare);n.start(t);n.stop(t+.18);}
+function playHat(t){if(!cachedNoise)cachedNoise=noiseBuffer();const n=ctx.createBufferSource();n.buffer=cachedNoise;const f=ctx.createBiquadFilter();f.type='highpass';f.frequency.value=7000;const g=ctx.createGain();g.gain.setValueAtTime(.35,t);g.gain.exponentialRampToValueAtTime(.001,t+.06);n.connect(f);f.connect(g);g.connect(trackGains.Hat);n.start(t);n.stop(t+.07);}
+function playBass(freq,t){const o=ctx.createOscillator(),f=ctx.createBiquadFilter(),g=ctx.createGain();o.type='sawtooth';o.frequency.value=freq;f.type='lowpass';f.frequency.value=500;g.gain.setValueAtTime(.8,t);g.gain.exponentialRampToValueAtTime(.001,t+.32);o.connect(f);f.connect(g);g.connect(trackGains.Bass);o.start(t);o.stop(t+.34);}
+function playBanjo(freq,t){const o=ctx.createOscillator(),o2=ctx.createOscillator(),g=ctx.createGain();o.type='square';o.frequency.value=freq;o2.type='triangle';o2.frequency.value=freq*2;g.gain.setValueAtTime(.5,t);g.gain.exponentialRampToValueAtTime(.001,t+.28);o.connect(g);o2.connect(g);g.connect(trackGains.Banjo);o.start(t);o2.start(t);o.stop(t+.3);o2.stop(t+.3);}
+function playPiano(freq,t){[1,2,3].forEach((h,i)=>{const o=ctx.createOscillator(),g=ctx.createGain();o.type=i?'sine':'triangle';o.frequency.value=freq*h;g.gain.setValueAtTime(.55/(i+1),t);g.gain.exponentialRampToValueAtTime(.001,t+.7);o.connect(g);g.connect(trackGains.Piano);o.start(t);o.stop(t+.72);});}
+function scheduleStep(step,t){
+ const chord=chords[Math.floor(step/4)%4];
+ if(pattern.Kick[step]&&!muted.Kick)playKick(t);
+ if(pattern.Snare[step]&&!muted.Snare)playSnare(t);
+ if(pattern.Hat[step]&&!muted.Hat)playHat(t);
+ if(pattern.Bass[step]&&!muted.Bass)playBass(chord.root,t);
+ if(pattern.Banjo[step]&&!muted.Banjo)playBanjo(chord.notes[step%3]*2,t);
+ if(pattern.Piano[step]&&!muted.Piano)chord.notes.forEach(n=>playPiano(n,t));
+}
+function scheduler(){
+ const bpm=+document.getElementById('bpm').value;
+ const stepDur=60/bpm/4;
+ while(nextTime<ctx.currentTime+.12){
+  scheduleStep(currentStep,nextTime);
+  const drawStep=currentStep;
+  setTimeout(()=>highlight(drawStep),Math.max(0,(nextTime-ctx.currentTime)*1000));
+  nextTime+=stepDur;currentStep=(currentStep+1)%steps;
+ }
+}
+function highlight(step){document.querySelectorAll('.step').forEach(el=>el.classList.toggle('now',+el.dataset.step===step));}
+function togglePlay(){
+ ensureAudio();ctx.resume();
+ if(playing){playing=false;clearInterval(timer);document.getElementById('playBtn').textContent='▶ Play';highlight(-1);return;}
+ playing=true;currentStep=0;nextTime=ctx.currentTime+.06;timer=setInterval(scheduler,25);document.getElementById('playBtn').textContent='⏸ Pause';
+}
+function drawGrid(){
+ const grid=document.getElementById('grid');grid.innerHTML='';
+ tracks.forEach(t=>{
+  const name=document.createElement('div');name.className='trackname';name.textContent=t;grid.appendChild(name);
+  for(let s=0;s<steps;s++){const b=document.createElement('button');b.className='step'+(s%4===0?' beat':'')+(pattern[t][s]?' on':'');b.dataset.step=s;b.setAttribute('aria-label',t+' step '+(s+1));b.onclick=()=>{pattern[t][s]=!pattern[t][s];drawGrid();};grid.appendChild(b);}
+ });
+}
+function drawMixer(){
+ const m=document.getElementById('mixer');m.innerHTML='';
+ tracks.forEach(t=>{
+  const d=document.createElement('div');d.className='mix';
+  d.innerHTML=`<b>${t}</b><input type="range" min="0" max="100" value="${volumes[t]*100}"><br><label><input type="checkbox"> Mute</label>`;
+  const range=d.querySelector('input[type=range]');const mute=d.querySelector('input[type=checkbox]');
+  range.oninput=()=>{volumes[t]=range.value/100;if(trackGains[t])trackGains[t].gain.value=volumes[t];};
+  mute.onchange=()=>{muted[t]=mute.checked;};
+  m.appendChild(d);
+ });
+}
+function noteButtons(elId,notes,fn){
+ const el=document.getElementById(elId);
+ notes.forEach(([label,freq])=>{const b=document.createElement('button');b.className='note';b.textContent=label;b.onclick=()=>{ensureAudio();ctx.resume();fn(freq,ctx.currentTime);};el.appendChild(b);});
+}
+document.getElementById('playBtn').onclick=togglePlay;
+document.getElementById('clearBtn').onclick=()=>loadPreset('empty');
+document.getElementById('preset').onchange=e=>loadPreset(e.target.value);
+document.getElementById('bpm').oninput=e=>document.getElementById('bpmVal').textContent=e.target.value;
+document.getElementById('master').oninput=e=>{if(masterGain)masterGain.gain.value=e.target.value/100;};
+loadPreset('southern');drawMixer();
+noteButtons('piano',[['C',261.63],['D',293.66],['E',329.63],['F',349.23],['G',392],['A',440],['B',493.88],['C5',523.25]],(f,t)=>playPiano(f,t));
+document.querySelectorAll('#piano .note').forEach(b=>b.className='key');
+noteButtons('banjo',[['G string',392],['D string',293.66],['G string',392],['B string',493.88],['D string',587.33]],(f,t)=>playBanjo(f,t));
+noteButtons('bass',[['A bass',110],['F bass',87.31],['C bass',130.81],['G bass',98]],(f,t)=>playBass(f,t));
+</script>
+</body>
+</html>
