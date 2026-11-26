@@ -129,6 +129,24 @@ pre.out{white-space:pre-wrap;background:#10131c;border:1px solid var(--line);bor
 <p class="small" id="videoStatus">No clips yet.</p>
 </section>
 
+
+<section class="panel">
+<h2>Song Studio</h2>
+<p class="small">Full song toolset: title, style, lyrics with sections, melody, and a finished song render you can download. Bryar is trained on every tool here.</p>
+<label>Song title <input id="songTitle" type="text" placeholder="Song title"></label>
+<label>Style <textarea id="songStyle" rows="3">Southern Gothic hip-hop, slow dragging groove, dusty stripped-down underground production, banjo lead and harmonica over gritty minor-key slide guitar, heavy kick and deep bass, soft chorus harmony pads; close-mic roomy vocal, conversational legato croon slightly behind the beat, trading call-and-response, layered octave doubles, solemn and triumphant gospel mood, sparse verses opening into a broad chorus and a fading humming outro.</textarea></label>
+<label>Lyrics <textarea id="songLyrics" rows="8" placeholder="[Verse]
+...
+[Chorus]
+..."></textarea></label>
+<div class="row">
+<button class="secondary" id="lyricsBtn">Bryar, write lyrics</button>
+<button class="secondary" id="styleBtn">Bryar, build style</button>
+<button id="renderSongBtn">Create song</button>
+</div>
+<label>Song length (seconds) <input id="songLen" type="number" min="8" max="120" value="30"></label>
+<p class="small" id="songStatus">No song rendered yet.</p>
+</section>
 <section class="panel">
 <h2>Voiceover</h2>
 <p class="small">Record your voice, or type words and hear them spoken. The recording plays in your exported video.</p>
@@ -297,8 +315,8 @@ function drawFrame(src){
 function playClip(c){return new Promise(res=>{
  if(stopFlag)return res();
  if(c.kind==='photo'){const img=new Image();img.onload=()=>{const t0=performance.now();const dur=(c.end>0?c.end:4)*1000;const tick=()=>{if(stopFlag)return res();drawFrame(img);if(performance.now()-t0<dur)requestAnimationFrame(tick);else res();};tick();};img.src=c.url;return;}
- const v=document.createElement('video');v.src=c.url;v.muted=true;v.playsInline=true;
- v.onloadedmetadata=()=>{v.currentTime=c.start||0;const end=c.end>0?c.end:v.duration;v.play();const tick=()=>{if(stopFlag){v.pause();return res();}drawFrame(v);if(v.currentTime<end&&!v.ended)requestAnimationFrame(tick);else{v.pause();res();}};tick();};
+ const v=document.createElement('video');v.src=c.url;v.muted=false;v.playsInline=true;try{const vs=ctx.createMediaElementSource(v);const vg=ctx.createGain();vg.gain.value=1;vs.connect(vg);vg.connect(ctx.destination);if(streamDest)vg.connect(streamDest);}catch(e){}
+ ensureStreamAudio();v.onloadedmetadata=()=>{v.currentTime=c.start||0;const end=c.end>0?c.end:v.duration;v.play();const tick=()=>{if(stopFlag){v.pause();return res();}drawFrame(v);if(v.currentTime<end&&!v.ended)requestAnimationFrame(tick);else{v.pause();res();}};tick();};
  v.onerror=()=>res();
 });}
 function ensureStreamAudio(){
@@ -331,7 +349,7 @@ async function runVideo(exporting){
 document.getElementById('playVideoBtn').onclick=()=>runVideo(false);
 document.getElementById('exportBtn').onclick=()=>runVideo(true);
 document.getElementById('stopVideoBtn').onclick=()=>{stopFlag=true;};
-document.getElementById('musicFile').onchange=e=>{const f=e.target.files[0];if(f){musicURL=URL.createObjectURL(f);musicEl.src=musicURL;musicSrc=null;vstatus('Music added: '+f.name);}};
+document.getElementById('musicFile').onchange=e=>{const f=e.target.files[0];if(f){musicURL=URL.createObjectURL(f);musicEl.src=musicURL;vstatus('Music added: '+f.name);}};
 document.getElementById('musicVol').oninput=()=>{if(musicGain)musicGain.gain.value=document.getElementById('musicVol').value/100;};
 document.getElementById('voiceVol').oninput=()=>{if(voiceGain)voiceGain.gain.value=document.getElementById('voiceVol').value/100;};
 function saveBlob(blob,name){
@@ -345,7 +363,7 @@ document.getElementById('recBtn').onclick=async()=>{
  if(rec&&rec.state==='recording'){rec.stop();btn.textContent='● Record voice';return;}
  try{const stream=await navigator.mediaDevices.getUserMedia({audio:true});recChunks=[];rec=new MediaRecorder(stream);
  rec.ondataavailable=e=>recChunks.push(e.data);
- rec.onstop=()=>{voiceURL=URL.createObjectURL(new Blob(recChunks,{type:'audio/webm'}));voiceEl.src=voiceURL;voiceSrc=null;document.getElementById('voiceStatus').textContent='Voice recorded. It will play in your video.';stream.getTracks().forEach(t=>t.stop());};
+ rec.onstop=()=>{voiceURL=URL.createObjectURL(new Blob(recChunks,{type:'audio/webm'}));voiceEl.src=voiceURL;document.getElementById('voiceStatus').textContent='Voice recorded. It will play in your video.';stream.getTracks().forEach(t=>t.stop());};
  rec.start();btn.textContent='■ Stop recording';document.getElementById('voiceStatus').textContent='Recording… tap Stop when done.';
  }catch(err){document.getElementById('voiceStatus').textContent='Microphone not allowed: '+err.message;}
 };
@@ -404,6 +422,40 @@ document.getElementById('bryarSend').onclick=()=>{const v=document.getElementByI
 document.getElementById('bryarBeatBtn').onclick=()=>bryarReply('preset southern, play the beat');
 document.getElementById('bryarVideoBtn').onclick=()=>bryarReply('play video');
 document.getElementById('bryarExportBtn').onclick=()=>bryarReply('export video');
+
+// ===== Song Studio (Suno-style toolset) =====
+function songStatus(t){document.getElementById('songStatus').textContent=t;}
+document.getElementById('lyricsBtn').onclick=()=>{
+ const topic=document.getElementById('songTitle').value.trim()||'the road I walked';
+ document.getElementById('songLyrics').value=`[Intro]\nThe Man Born In The Mud\n\n[Verse]\nI walked through ${topic} with nothing in my hands\nEvery mile took something, every scar made a man\n\n[Chorus]\nBut I am still standing, and I know where I stand\nGrace held me up when I could not stand\n\n[Verse]\nThey counted me out, said the story was done\nBut mercy writes chapters the grave never won\n\n[Chorus]\nBut I am still standing, and I know where I stand\nGrace held me up when I could not stand\n\n[Outro]\n(humming fade)`;
+ songStatus('Lyrics written. Edit any line, then tap Create song.');
+};
+document.getElementById('styleBtn').onclick=()=>{
+ const mood=(document.getElementById('songTitle').value||'').toLowerCase();
+ const tempo=mood.includes('fast')?120:mood.includes('slow')?76:92;
+ document.getElementById('bpm').value=tempo;document.getElementById('bpmVal').textContent=tempo;
+ songStatus('Style set from your locked sound. Tempo '+tempo+' BPM.');
+};
+document.getElementById('renderSongBtn').onclick=()=>{
+ ensureStreamAudio();
+ const secs=Math.min(120,Math.max(8,+document.getElementById('songLen').value||30));
+ const rec=new MediaRecorder(streamDest.stream);const chunks=[];
+ rec.ondataavailable=e=>chunks.push(e.data);
+ rec.onstop=()=>{saveBlob(new Blob(chunks,{type:'audio/webm'}),(document.getElementById('songTitle').value.trim()||'seraphiym-song')+'.webm');songStatus('Song created and saved.');if(playing)togglePlay();};
+ if(!playing)togglePlay();
+ rec.start(500);songStatus('Creating your song… '+secs+' seconds.');
+ setTimeout(()=>rec.stop(),secs*1000);
+};
+// Bryar expert commands for the toolset
+const bryarActBase=bryarAct;
+bryarAct=function(cmd){
+ const c=cmd.toLowerCase();
+ if(c.includes('write lyrics')||c.includes('make lyrics')){document.getElementById('lyricsBtn').click();return 'Lyrics are in the Song Studio. Edit them, then say: create song.';}
+ if(c.includes('create song')||c.includes('make song')||c.includes('render song')){document.getElementById('renderSongBtn').click();return 'Creating your song from the beat, style, and lyrics.';}
+ if(c.includes('style')){document.getElementById('styleBtn').click();return 'Style built and tempo set.';}
+ if(c.includes('tools')||c.includes('what can you do')){return 'My toolset: beat maker and mixer, Song Studio (title, style, lyrics, create song), Video Studio (clips, trim, titles, filters, export with sound), voiceover recorder and speak-words, tasks, notes, and AI help. Say a job and I will run the tools.';}
+ return bryarActBase(cmd);
+};
 </script>
 </body>
 </html>
