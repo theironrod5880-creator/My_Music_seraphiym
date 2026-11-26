@@ -101,6 +101,32 @@ pre.out{white-space:pre-wrap;background:#10131c;border:1px solid var(--line);bor
 <div class="strings" id="bass"></div>
 </section>
 
+
+<section class="panel">
+<h2>Picture Editor</h2>
+<p class="small">Load a picture and shape it: light, color, crop, turn, draw, words, then save. Bryar can run these tools too — say "brighter" or "crop square."</p>
+<label>Picture <input id="picFile" type="file" accept="image/*"></label>
+<canvas id="picCanvas" width="1080" height="1080" style="width:100%;max-width:560px;background:#000;border-radius:12px;border:1px solid var(--line)"></canvas>
+<div class="row">
+<label>Brightness <input id="pBright" type="range" min="40" max="180" value="100"></label>
+<label>Contrast <input id="pContrast" type="range" min="40" max="180" value="100"></label>
+<label>Color <input id="pColor" type="range" min="0" max="220" value="100"></label>
+<label>Warmth <input id="pWarm" type="range" min="0" max="100" value="0"></label>
+</div>
+<div class="row">
+<button class="secondary" id="pGray">Black &amp; white</button>
+<button class="secondary" id="pRotate">Turn</button>
+<button class="secondary" id="pFlip">Flip</button>
+<label>Crop <select id="pCrop"><option value="free">Full picture</option><option value="square">Square 1:1</option><option value="tall">Tall 9:16</option><option value="wide">Wide 16:9</option></select></label>
+</div>
+<label>Words on picture <input id="pText" type="text" placeholder="Type words to place on the picture"></label>
+<div class="row">
+<label>Draw color <input id="pDrawColor" type="color" value="#e6b94f"></label>
+<button class="secondary" id="pUndo">Undo draw</button>
+<button id="pSave">⬇ Save picture</button>
+</div>
+<p class="small" id="picStatus">No picture loaded.</p>
+</section>
 <section class="panel">
 <h2>Video Studio</h2>
 <p class="small">Add video clips and photos, set the order, trim each clip, then play or export. Your beat, music, and voiceover ride along in the export.</p>
@@ -455,6 +481,52 @@ bryarAct=function(cmd){
  if(c.includes('style')){document.getElementById('styleBtn').click();return 'Style built and tempo set.';}
  if(c.includes('tools')||c.includes('what can you do')){return 'My toolset: beat maker and mixer, Song Studio (title, style, lyrics, create song), Video Studio (clips, trim, titles, filters, export with sound), voiceover recorder and speak-words, tasks, notes, and AI help. Say a job and I will run the tools.';}
  return bryarActBase(cmd);
+};
+
+// ===== Picture Editor =====
+let picImg=null,picRot=0,picFlip=false,picGray=false,drawStack=[];
+const picCanvas=document.getElementById('picCanvas');const pctx=picCanvas.getContext('2d');
+function picStatus(t){document.getElementById('picStatus').textContent=t;}
+function renderPic(){
+ if(!picImg)return;
+ const crop=document.getElementById('pCrop').value;
+ let W=1080,H=1080;
+ if(crop==='tall'){W=720;H=1280;} else if(crop==='wide'){W=1280;H=720;} else if(crop==='free'){const r=picImg.naturalHeight/picImg.naturalWidth;H=Math.round(1080*r);}
+ picCanvas.width=W;picCanvas.height=H;
+ pctx.save();
+ pctx.filter=`brightness(${document.getElementById('pBright').value}%) contrast(${document.getElementById('pContrast').value}%) saturate(${document.getElementById('pColor').value}%) sepia(${document.getElementById('pWarm').value}%)${picGray?' grayscale(100%)':''}`;
+ pctx.translate(W/2,H/2);pctx.rotate(picRot*Math.PI/180);if(picFlip)pctx.scale(-1,1);
+ const swapped=(picRot%180!==0);const tw=swapped?H:W,th=swapped?W:H;
+ const scale=Math.max(tw/picImg.naturalWidth,th/picImg.naturalHeight);
+ pctx.drawImage(picImg,-picImg.naturalWidth*scale/2,-picImg.naturalHeight*scale/2,picImg.naturalWidth*scale,picImg.naturalHeight*scale);
+ pctx.restore();
+ drawStack.forEach(seg=>{pctx.strokeStyle=seg.color;pctx.lineWidth=seg.size;pctx.lineCap='round';pctx.beginPath();seg.points.forEach((pt,i)=>{const x=pt.x*W,y=pt.y*H;i?pctx.lineTo(x,y):pctx.moveTo(x,y);});pctx.stroke();});
+ const t=document.getElementById('pText').value.trim();
+ if(t){pctx.font=`bold ${Math.round(H*0.06)}px Arial`;pctx.textAlign='center';pctx.fillStyle='rgba(0,0,0,.5)';const w=pctx.measureText(t).width+36;pctx.fillRect((W-w)/2,H*0.88,w,H*0.09);pctx.fillStyle='#f5efe0';pctx.fillText(t,W/2,H*0.945);}
+}
+document.getElementById('picFile').onchange=e=>{const f=e.target.files[0];if(!f)return;const img=new Image();img.onload=()=>{picImg=img;drawStack=[];renderPic();picStatus('Picture loaded: '+f.name);};img.src=URL.createObjectURL(f);};
+['pBright','pContrast','pColor','pWarm','pCrop','pText'].forEach(id=>document.getElementById(id).addEventListener('input',renderPic));
+document.getElementById('pGray').onclick=()=>{picGray=!picGray;renderPic();};
+document.getElementById('pRotate').onclick=()=>{picRot=(picRot+90)%360;renderPic();};
+document.getElementById('pFlip').onclick=()=>{picFlip=!picFlip;renderPic();};
+document.getElementById('pUndo').onclick=()=>{drawStack.pop();renderPic();};
+let drawing=null;
+picCanvas.addEventListener('pointerdown',e=>{drawing={color:document.getElementById('pDrawColor').value,size:8,points:[]};drawStack.push(drawing);});
+picCanvas.addEventListener('pointermove',e=>{if(!drawing)return;const r=picCanvas.getBoundingClientRect();drawing.points.push({x:(e.clientX-r.left)/r.width,y:(e.clientY-r.top)/r.height});renderPic();});
+picCanvas.addEventListener('pointerup',()=>drawing=null);
+document.getElementById('pSave').onclick=()=>{if(!picImg){picStatus('Load a picture first.');return;}picCanvas.toBlob(b=>saveBlob(b,'seraphiym-picture.png'),'image/png');picStatus('Picture saved.');};
+// Bryar picture commands
+const bryarActPic=bryarAct;
+bryarAct=function(cmd){
+ const c=cmd.toLowerCase();
+ if(c.includes('brighter')){document.getElementById('pBright').value=+document.getElementById('pBright').value+20;renderPic();return 'Picture brightened.';}
+ if(c.includes('darker')){document.getElementById('pBright').value=+document.getElementById('pBright').value-20;renderPic();return 'Picture darkened.';}
+ if(c.includes('crop square')){document.getElementById('pCrop').value='square';renderPic();return 'Cropped square.';}
+ if(c.includes('crop tall')){document.getElementById('pCrop').value='tall';renderPic();return 'Cropped tall.';}
+ if(c.includes('crop wide')){document.getElementById('pCrop').value='wide';renderPic();return 'Cropped wide.';}
+ if(c.includes('black and white')||c.includes('black & white')){picGray=true;renderPic();return 'Black and white set.';}
+ if(c.includes('save picture')){document.getElementById('pSave').click();return 'Saving your picture.';}
+ return bryarActPic(cmd);
 };
 </script>
 </body>
