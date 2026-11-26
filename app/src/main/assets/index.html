@@ -42,9 +42,25 @@ pre.out{white-space:pre-wrap;background:#10131c;border:1px solid var(--line);bor
 <body>
 <header>
 <h1>My Music Seraphiym</h1>
-<p class="sub">Beat maker, video studio, voiceovers, and AI help — one easy studio.</p>
+<p class="sub">Bryar hosts this studio — beat maker, video, voiceovers, tasks, and AI help in one home.</p>
 </header>
 <main>
+
+<section class="panel" id="bryarPanel">
+<h2>Bryar — your host</h2>
+<p class="small">This studio is Bryar's home. Talk to Bryar and he works the tabs for you: beats, video, voice, tasks, and notes.</p>
+<pre class="out" id="bryarLog">Bryar: Welcome home. Tell me what to build — a beat, a video, a voiceover, or a task.</pre>
+<label>Talk to Bryar <input id="bryarInput" type="text" placeholder="Try: play the beat · tempo 120 · preset gospel · title My Song · export video"></label>
+<div class="row">
+<button id="bryarSend">Send to Bryar</button>
+<button class="secondary" id="bryarBeatBtn">Make me a beat</button>
+<button class="secondary" id="bryarVideoBtn">Play my video</button>
+<button class="secondary" id="bryarExportBtn">Export my video</button>
+</div>
+<h3>Bryar's task list</h3>
+<div id="bryarTasks"></div>
+<div class="row"><input id="bryarTaskInput" type="text" placeholder="New task for Bryar"><button class="secondary" id="bryarTaskAdd">Add task</button></div>
+</section>
 <section class="panel">
 <div class="row">
 <button id="playBtn">▶ Play</button>
@@ -354,6 +370,40 @@ document.getElementById('aiAskBtn').onclick=async()=>{
 };
 const savedKey=localStorage.getItem('seraphiym_ai_key');if(savedKey)document.getElementById('aiKey').value=savedKey;
 const savedModel=localStorage.getItem('seraphiym_ai_model');if(savedModel)document.getElementById('aiModel').value=savedModel;
+
+// ===== Bryar host =====
+const bryarLog=document.getElementById('bryarLog');
+function bryarSay(t){bryarLog.textContent+='\nBryar: '+t;bryarLog.scrollTop=bryarLog.scrollHeight;}
+let bryarTasks=JSON.parse(localStorage.getItem('bryar_tasks')||'[]');
+function drawBryarTasks(){const el=document.getElementById('bryarTasks');el.innerHTML='';bryarTasks.forEach((t,i)=>{const d=document.createElement('div');d.className='clip';d.innerHTML=`<label><input type="checkbox" ${t.done?'checked':''}> ${t.text}</label>`;d.querySelector('input').onchange=e=>{t.done=e.target.checked;localStorage.setItem('bryar_tasks',JSON.stringify(bryarTasks));drawBryarTasks();};el.appendChild(d);});}
+drawBryarTasks();
+document.getElementById('bryarTaskAdd').onclick=()=>{const v=document.getElementById('bryarTaskInput').value.trim();if(v){bryarTasks.push({text:v,done:false});localStorage.setItem('bryar_tasks',JSON.stringify(bryarTasks));drawBryarTasks();bryarSay('Task added: '+v);}};
+function bryarAct(cmd){
+ const c=cmd.toLowerCase();
+ if(c.includes('play')&&c.includes('beat')){if(!playing)togglePlay();return 'Beat is playing.';}
+ if(c.includes('stop')&&c.includes('beat')){if(playing)togglePlay();return 'Beat stopped.';}
+ const tempo=c.match(/tempo\s*(\d+)/);if(tempo){document.getElementById('bpm').value=tempo[1];document.getElementById('bpmVal').textContent=tempo[1];return 'Tempo set to '+tempo[1]+' BPM.';}
+ if(c.includes('preset')){const name=['southern','porch','gospel','empty'].find(n=>c.includes(n));if(name){loadPreset(name);document.getElementById('preset').value=name;return 'Preset loaded: '+name+'.';}}
+ if(c.startsWith('title ')){document.getElementById('titleText').value=cmd.slice(6);return 'Video title set.';}
+ if(c.includes('export')){runVideo(true);return 'Exporting your video now.';}
+ if(c.includes('play')&&c.includes('video')){runVideo(false);return 'Playing your video.';}
+ if(c.startsWith('speak ')){speechSynthesis.cancel();speechSynthesis.speak(new SpeechSynthesisUtterance(cmd.slice(6)));return 'Speaking now.';}
+ if(c.startsWith('task ')){bryarTasks.push({text:cmd.slice(5),done:false});localStorage.setItem('bryar_tasks',JSON.stringify(bryarTasks));drawBryarTasks();return 'Task added.';}
+ if(c.startsWith('note ')){const notes=JSON.parse(localStorage.getItem('bryar_notes')||'[]');notes.push(cmd.slice(5));localStorage.setItem('bryar_notes',JSON.stringify(notes));return 'Note saved in my home.';}
+ if(c.includes('notes')){const notes=JSON.parse(localStorage.getItem('bryar_notes')||'[]');return notes.length?('My notes: '+notes.join(' | ')):'No notes saved yet.';}
+ return null;
+}
+async function bryarReply(cmd){
+ bryarLog.textContent+='\nYou: '+cmd;
+ const acted=bryarAct(cmd);if(acted){bryarSay(acted);return;}
+ const key=document.getElementById('aiKey').value.trim();
+ if(key){try{const r=await fetch('https://generativelanguage.googleapis.com/v1beta/openai/chat/completions',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+key},body:JSON.stringify({model:document.getElementById('aiModel').value.trim(),messages:[{role:'system',content:'You are Bryar, host of Seraphiym Studio. Help with beats, video, voiceovers, scripts, and tasks. Plain words, brief.'},{role:'user',content:cmd}]})});const j=await r.json();bryarSay((j.choices&&j.choices[0]&&j.choices[0].message.content)||'I could not answer that.');return;}catch(e){}}
+ bryarSay('I can work the studio for you. Try: play the beat, tempo 120, preset gospel, title My Song, export video, speak hello, task finish the song, note remember this. Add your AI key in AI Help and I can answer anything.');
+}
+document.getElementById('bryarSend').onclick=()=>{const v=document.getElementById('bryarInput').value.trim();if(v){bryarReply(v);document.getElementById('bryarInput').value='';}};
+document.getElementById('bryarBeatBtn').onclick=()=>bryarReply('preset southern, play the beat');
+document.getElementById('bryarVideoBtn').onclick=()=>bryarReply('play video');
+document.getElementById('bryarExportBtn').onclick=()=>bryarReply('export video');
 </script>
 </body>
 </html>
