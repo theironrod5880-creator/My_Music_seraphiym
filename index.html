@@ -36,6 +36,7 @@ canvas#stage.tall{aspect-ratio:9/16;max-width:360px}
 .clip input[type=number]{width:64px;background:#10131c;color:var(--cream);border:1px solid var(--line);border-radius:6px;padding:4px}
 textarea,input[type=text],input[type=password]{width:100%;background:#10131c;color:var(--cream);border:1px solid var(--line);border-radius:8px;padding:8px;margin:4px 0}
 pre.out{white-space:pre-wrap;background:#10131c;border:1px solid var(--line);border-radius:8px;padding:10px;min-height:60px}
+#picCanvas,#stage{position:sticky;top:10px;z-index:20}
 @media(max-width:640px){.grid{grid-template-columns:64px repeat(16,1fr);gap:3px}.step{height:28px}.trackname{font-size:12px}h1{font-size:22px}}
 </style>
 <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js">
@@ -45,7 +46,7 @@ function docStatus(t){document.getElementById('docStatus').textContent=t;}
 document.getElementById('docRead').onclick=async()=>{
  if(!picImg){docStatus('Load a document photo in the Picture Editor first.');return;}
  docStatus('Reading the words… this can take a moment.');
- try{const r=await Tesseract.recognize(picImg.src,'eng');document.getElementById('docText').value=r.data.text.trim();docStatus('Words read. Edit them above if needed.');}
+ try{const tc=document.createElement('canvas');tc.width=picImg.naturalWidth;tc.height=picImg.naturalHeight;const tx=tc.getContext('2d');tx.filter='contrast(135%) grayscale(100%)';tx.drawImage(picImg,0,0);const r=await Tesseract.recognize(tc.toDataURL('image/png'),'eng');document.getElementById('docText').value=r.data.text.trim();docStatus('Words read. Edit them above if needed.');}
  catch(e){docStatus('Reading failed: '+e.message);}
 };
 document.getElementById('docCopy').onclick=async()=>{
@@ -56,11 +57,13 @@ document.getElementById('docCopy').onclick=async()=>{
 document.getElementById('docSelect').onclick=()=>{docSelecting=true;docSel=null;docStatus('Now drag on the picture to select an area.');};
 picCanvas.addEventListener('pointerdown',e=>{if(!docSelecting)return;const r=picCanvas.getBoundingClientRect();docStart={x:(e.clientX-r.left)/r.width,y:(e.clientY-r.top)/r.height};});
 picCanvas.addEventListener('pointerup',e=>{if(!docSelecting||!docStart)return;const r=picCanvas.getBoundingClientRect();const x2=(e.clientX-r.left)/r.width,y2=(e.clientY-r.top)/r.height;docSel={x:Math.min(docStart.x,x2),y:Math.min(docStart.y,y2),w:Math.abs(x2-docStart.x),h:Math.abs(y2-docStart.y)};docSelecting=false;docStatus('Area selected. Choose Cut, Remove, or Replace.');});
+
+function bakePic(){const img=new Image();img.onload=()=>{picImg=img;picRot=0;picFlip=false;picGray=false;drawStack=[];renderPic();};img.src=picCanvas.toDataURL('image/png');}
 function selPx(){const W=picCanvas.width,H=picCanvas.height;return{x:docSel.x*W,y:docSel.y*H,w:docSel.w*W,h:docSel.h*H};}
 document.getElementById('docCut').onclick=()=>{if(!docSel){docStatus('Select an area first.');return;}const s=selPx();const c=document.createElement('canvas');c.width=s.w;c.height=s.h;c.getContext('2d').drawImage(picCanvas,s.x,s.y,s.w,s.h,0,0,s.w,s.h);c.toBlob(b=>saveBlob(b,'cut-out.png'),'image/png');docStatus('Area cut out and saved.');};
 function coverArea(){const s=selPx();const px=pctx.getImageData(Math.max(0,s.x-2),Math.max(0,s.y-2),1,1).data;pctx.fillStyle=`rgb(${px[0]},${px[1]},${px[2]})`;pctx.fillRect(s.x,s.y,s.w,s.h);return s;}
-document.getElementById('docRemove').onclick=()=>{if(!docSel){docStatus('Select an area first.');return;}coverArea();docStatus('Area removed. Save the picture to keep it.');};
-document.getElementById('docReplaceBtn').onclick=()=>{if(!docSel){docStatus('Select an area first.');return;}const s=coverArea();const t=document.getElementById('docReplace').value.trim();pctx.fillStyle='#1a1a1a';pctx.font=`bold ${Math.round(s.h*0.6)}px Arial`;pctx.textAlign='left';pctx.fillText(t,s.x+4,s.y+s.h*0.75,s.w-8);docStatus('Words replaced. Save the picture to keep it.');};
+document.getElementById('docRemove').onclick=()=>{if(!docSel){docStatus('Select an area first.');return;}coverArea();bakePic();docStatus('Area removed and kept. Save the picture when ready.');};
+document.getElementById('docReplaceBtn').onclick=()=>{if(!docSel){docStatus('Select an area first.');return;}const s=coverArea();const t=document.getElementById('docReplace').value.trim();pctx.fillStyle='#1a1a1a';pctx.font=`bold ${Math.round(s.h*0.6)}px Arial`;pctx.textAlign='left';pctx.fillText(t,s.x+4,s.y+s.h*0.75,s.w-8);bakePic();docStatus('Words replaced and kept. Save the picture when ready.');};
 document.getElementById('docPasteBtn').onclick=()=>{document.getElementById('pText').value=document.getElementById('docReplace').value||document.getElementById('docText').value.split('\n')[0];renderPic();docStatus('Words pasted on the picture.');};
 // Templates
 let templates=JSON.parse(localStorage.getItem('seraphiym_templates')||'[]');
@@ -576,7 +579,7 @@ let drawing=null;
 picCanvas.addEventListener('pointerdown',e=>{drawing={color:document.getElementById('pDrawColor').value,size:8,points:[]};drawStack.push(drawing);});
 picCanvas.addEventListener('pointermove',e=>{if(!drawing)return;const r=picCanvas.getBoundingClientRect();drawing.points.push({x:(e.clientX-r.left)/r.width,y:(e.clientY-r.top)/r.height});renderPic();});
 picCanvas.addEventListener('pointerup',()=>drawing=null);
-document.getElementById('pSave').onclick=()=>{if(!picImg){picStatus('Load a picture first.');return;}picCanvas.toBlob(b=>saveBlob(b,'seraphiym-picture.png'),'image/png');picStatus('Picture saved.');};
+document.getElementById('pSave').onclick=()=>{if(!picImg){picStatus('Load a picture first.');return;}renderPic();picCanvas.toBlob(b=>saveBlob(b,'seraphiym-picture.png'),'image/png');picStatus('Picture saved.');};
 // Bryar picture commands
 const bryarActPic=bryarAct;
 bryarAct=function(cmd){
@@ -597,7 +600,7 @@ function docStatus(t){document.getElementById('docStatus').textContent=t;}
 document.getElementById('docRead').onclick=async()=>{
  if(!picImg){docStatus('Load a document photo in the Picture Editor first.');return;}
  docStatus('Reading the words… this can take a moment.');
- try{const r=await Tesseract.recognize(picImg.src,'eng');document.getElementById('docText').value=r.data.text.trim();docStatus('Words read. Edit them above if needed.');}
+ try{const tc=document.createElement('canvas');tc.width=picImg.naturalWidth;tc.height=picImg.naturalHeight;const tx=tc.getContext('2d');tx.filter='contrast(135%) grayscale(100%)';tx.drawImage(picImg,0,0);const r=await Tesseract.recognize(tc.toDataURL('image/png'),'eng');document.getElementById('docText').value=r.data.text.trim();docStatus('Words read. Edit them above if needed.');}
  catch(e){docStatus('Reading failed: '+e.message);}
 };
 document.getElementById('docCopy').onclick=async()=>{
@@ -608,11 +611,13 @@ document.getElementById('docCopy').onclick=async()=>{
 document.getElementById('docSelect').onclick=()=>{docSelecting=true;docSel=null;docStatus('Now drag on the picture to select an area.');};
 picCanvas.addEventListener('pointerdown',e=>{if(!docSelecting)return;const r=picCanvas.getBoundingClientRect();docStart={x:(e.clientX-r.left)/r.width,y:(e.clientY-r.top)/r.height};});
 picCanvas.addEventListener('pointerup',e=>{if(!docSelecting||!docStart)return;const r=picCanvas.getBoundingClientRect();const x2=(e.clientX-r.left)/r.width,y2=(e.clientY-r.top)/r.height;docSel={x:Math.min(docStart.x,x2),y:Math.min(docStart.y,y2),w:Math.abs(x2-docStart.x),h:Math.abs(y2-docStart.y)};docSelecting=false;docStatus('Area selected. Choose Cut, Remove, or Replace.');});
+
+function bakePic(){const img=new Image();img.onload=()=>{picImg=img;picRot=0;picFlip=false;picGray=false;drawStack=[];renderPic();};img.src=picCanvas.toDataURL('image/png');}
 function selPx(){const W=picCanvas.width,H=picCanvas.height;return{x:docSel.x*W,y:docSel.y*H,w:docSel.w*W,h:docSel.h*H};}
 document.getElementById('docCut').onclick=()=>{if(!docSel){docStatus('Select an area first.');return;}const s=selPx();const c=document.createElement('canvas');c.width=s.w;c.height=s.h;c.getContext('2d').drawImage(picCanvas,s.x,s.y,s.w,s.h,0,0,s.w,s.h);c.toBlob(b=>saveBlob(b,'cut-out.png'),'image/png');docStatus('Area cut out and saved.');};
 function coverArea(){const s=selPx();const px=pctx.getImageData(Math.max(0,s.x-2),Math.max(0,s.y-2),1,1).data;pctx.fillStyle=`rgb(${px[0]},${px[1]},${px[2]})`;pctx.fillRect(s.x,s.y,s.w,s.h);return s;}
-document.getElementById('docRemove').onclick=()=>{if(!docSel){docStatus('Select an area first.');return;}coverArea();docStatus('Area removed. Save the picture to keep it.');};
-document.getElementById('docReplaceBtn').onclick=()=>{if(!docSel){docStatus('Select an area first.');return;}const s=coverArea();const t=document.getElementById('docReplace').value.trim();pctx.fillStyle='#1a1a1a';pctx.font=`bold ${Math.round(s.h*0.6)}px Arial`;pctx.textAlign='left';pctx.fillText(t,s.x+4,s.y+s.h*0.75,s.w-8);docStatus('Words replaced. Save the picture to keep it.');};
+document.getElementById('docRemove').onclick=()=>{if(!docSel){docStatus('Select an area first.');return;}coverArea();bakePic();docStatus('Area removed and kept. Save the picture when ready.');};
+document.getElementById('docReplaceBtn').onclick=()=>{if(!docSel){docStatus('Select an area first.');return;}const s=coverArea();const t=document.getElementById('docReplace').value.trim();pctx.fillStyle='#1a1a1a';pctx.font=`bold ${Math.round(s.h*0.6)}px Arial`;pctx.textAlign='left';pctx.fillText(t,s.x+4,s.y+s.h*0.75,s.w-8);bakePic();docStatus('Words replaced and kept. Save the picture when ready.');};
 document.getElementById('docPasteBtn').onclick=()=>{document.getElementById('pText').value=document.getElementById('docReplace').value||document.getElementById('docText').value.split('\n')[0];renderPic();docStatus('Words pasted on the picture.');};
 // Templates
 let templates=JSON.parse(localStorage.getItem('seraphiym_templates')||'[]');
