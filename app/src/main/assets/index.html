@@ -148,7 +148,7 @@ bryarAct=function(cmd){
 <section class="panel">
 <h2>Picture Editor</h2>
 <p class="small">Load a picture and shape it: light, color, crop, turn, draw, words, then save. Bryar can run these tools too — say "brighter" or "crop square."</p>
-<label>Picture <input id="picFile" type="file" accept="image/*"></label>
+<label>Picture <input id="picFile" type="file" accept="*/*"></label>
 <canvas id="picCanvas" width="1080" height="1080" style="width:100%;max-width:560px;background:#000;border-radius:12px;border:1px solid var(--line)"></canvas>
 <div class="row">
 <label>Brightness <input id="pBright" type="range" min="40" max="180" value="100"></label>
@@ -196,7 +196,7 @@ bryarAct=function(cmd){
 <h2>Video Studio</h2>
 <p class="small">Add video clips and photos, set the order, trim each clip, then play or export. Your beat, music, and voiceover ride along in the export.</p>
 <div class="row">
-<label class="small">Add clips or photos <input id="clipFiles" type="file" accept="video/*,image/*" multiple></label>
+<label class="small">Add clips or photos <input id="clipFiles" type="file" accept="*/*" multiple></label>
 <label>Shape <select id="shape"><option value="wide">Wide 16:9</option><option value="tall">Tall 9:16</option></select></label>
 </div>
 <div id="clipList"></div>
@@ -213,7 +213,7 @@ bryarAct=function(cmd){
 <label>Color <input id="fColor" type="range" min="0" max="200" value="100"></label>
 </div>
 <div class="row">
-<label>Music file <input id="musicFile" type="file" accept="audio/*"></label>
+<label>Music file <input id="musicFile" type="file" accept="*/*"></label>
 <label>Music volume <input id="musicVol" type="range" min="0" max="100" value="60"></label>
 <label><input id="useBeat" type="checkbox"> Use my beat in the video</label>
 </div>
@@ -371,7 +371,7 @@ document.getElementById('shape').onchange=e=>{const tall=e.target.value==='tall'
 document.getElementById('clipFiles').onchange=e=>{
  [...e.target.files].forEach(f=>{
   const url=URL.createObjectURL(f);
-  if(f.type.startsWith('video'))clips.push({kind:'video',name:f.name,url,start:0,end:0,dur:0});
+  const isVid=f.type.startsWith('video')||/\.(mp4|webm|mov|mkv|avi|3gp)$/i.test(f.name);if(isVid)clips.push({kind:'video',name:f.name,url,start:0,end:0,dur:0});
   else clips.push({kind:'photo',name:f.name,url,start:0,end:4,dur:4});
  });
  drawClips();vstatus(clips.length+' clip(s) ready.');
