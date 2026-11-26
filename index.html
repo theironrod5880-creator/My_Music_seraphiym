@@ -36,7 +36,7 @@ canvas#stage.tall{aspect-ratio:9/16;max-width:360px}
 .clip input[type=number]{width:64px;background:#10131c;color:var(--cream);border:1px solid var(--line);border-radius:6px;padding:4px}
 textarea,input[type=text],input[type=password]{width:100%;background:#10131c;color:var(--cream);border:1px solid var(--line);border-radius:8px;padding:8px;margin:4px 0}
 pre.out{white-space:pre-wrap;background:#10131c;border:1px solid var(--line);border-radius:8px;padding:10px;min-height:60px}
-#picCanvas,#stage{position:sticky;top:10px;z-index:20}
+#picCanvas.pinned,#stage.pinned{position:fixed;right:10px;bottom:10px;width:190px;max-width:190px;z-index:99;box-shadow:0 4px 18px rgba(0,0,0,.6)}
 @media(max-width:640px){.grid{grid-template-columns:64px repeat(16,1fr);gap:3px}.step{height:28px}.trackname{font-size:12px}h1{font-size:22px}}
 </style>
 <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js">
@@ -80,6 +80,10 @@ bryarAct=function(cmd){
  if(c.includes('template')){document.getElementById('tplSave').click();return 'Template saved.';}
  return bryarActDoc(cmd);
 };
+
+document.getElementById('pinPic').onclick=()=>{picCanvas.classList.toggle('pinned');};
+document.getElementById('pinStage').onclick=()=>{stage.classList.toggle('pinned');};
+picCanvas.classList.add('pinned');stage.classList.add('pinned');
 </script>
 </head>
 <body>
@@ -149,6 +153,7 @@ bryarAct=function(cmd){
 <h2>Picture Editor</h2>
 <p class="small">Load a picture and shape it: light, color, crop, turn, draw, words, then save. Bryar can run these tools too — say "brighter" or "crop square."</p>
 <label>Picture <input id="picFile" type="file" accept="*/*"></label>
+<button class="secondary" id="pinPic">Pin preview</button>
 <canvas id="picCanvas" width="1080" height="1080" style="width:100%;max-width:560px;background:#000;border-radius:12px;border:1px solid var(--line)"></canvas>
 <div class="row">
 <label>Brightness <input id="pBright" type="range" min="40" max="180" value="100"></label>
@@ -200,6 +205,7 @@ bryarAct=function(cmd){
 <label>Shape <select id="shape"><option value="wide">Wide 16:9</option><option value="tall">Tall 9:16</option></select></label>
 </div>
 <div id="clipList"></div>
+<button class="secondary" id="pinStage">Pin preview</button>
 <canvas id="stage" width="1280" height="720"></canvas>
 <div class="row">
 <button id="playVideoBtn">▶ Play video</button>
@@ -634,6 +640,10 @@ bryarAct=function(cmd){
  if(c.includes('template')){document.getElementById('tplSave').click();return 'Template saved.';}
  return bryarActDoc(cmd);
 };
+
+document.getElementById('pinPic').onclick=()=>{picCanvas.classList.toggle('pinned');};
+document.getElementById('pinStage').onclick=()=>{stage.classList.toggle('pinned');};
+picCanvas.classList.add('pinned');stage.classList.add('pinned');
 </script>
 </body>
 </html>
