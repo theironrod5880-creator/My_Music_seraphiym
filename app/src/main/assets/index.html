@@ -1,0 +1,359 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>My Music Seraphiym — Studio</title>
+<style>
+:root{--bg:#10131c;--panel:#1b2133;--panel2:#232c45;--gold:#e6b94f;--cream:#f5efe0;--muted:#aab3c5;--line:#39415e;--on:#e6b94f;--off:#2b3350;--now:#7dd3fc}
+*{box-sizing:border-box}body{margin:0;font-family:Arial,Helvetica,sans-serif;background:var(--bg);color:var(--cream)}
+header{padding:18px 16px 8px;text-align:center}h1{margin:0;font-size:26px;color:var(--gold)}p.sub{color:var(--muted);margin:6px 0 0}
+main{max-width:980px;margin:0 auto;padding:12px}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:14px;margin:12px 0}
+.row{display:flex;flex-wrap:wrap;gap:10px;align-items:center}
+button{background:var(--gold);color:#171106;border:0;border-radius:10px;padding:11px 16px;font-weight:700;font-size:16px}
+button.secondary{background:var(--panel2);color:var(--cream);border:1px solid var(--line)}
+select,input[type=range]{accent-color:var(--gold)}
+label{font-size:14px;color:var(--muted)}
+.grid{display:grid;grid-template-columns:86px repeat(16,1fr);gap:5px;align-items:center;margin-top:10px}
+.trackname{font-weight:700;font-size:14px}
+.step{height:34px;border-radius:8px;border:1px solid var(--line);background:var(--off);padding:0}
+.step.on{background:var(--on)}
+.step.now{outline:3px solid var(--now)}
+.step.beat{background:#343e63}.step.beat.on{background:var(--on)}
+.mixer{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:12px}
+.mix{background:var(--panel2);border-radius:12px;padding:10px}.mix b{display:block;margin-bottom:6px}
+.keys{display:flex;gap:4px;overflow-x:auto;padding-bottom:6px}
+.key{min-width:52px;height:120px;background:#f8f5ec;color:#111;border-radius:0 0 8px 8px;border:1px solid #999;font-weight:700}
+.key.black{background:#111;color:#fff;height:82px;min-width:42px}
+.strings{display:grid;grid-template-columns:repeat(auto-fit,minmax(92px,1fr));gap:8px}
+.note{background:var(--panel2);color:var(--cream);border:1px solid var(--line)}
+.small{font-size:13px;color:var(--muted)}
+
+canvas#stage{width:100%;max-width:760px;aspect-ratio:16/9;background:#000;border-radius:12px;border:1px solid var(--line)}
+canvas#stage.tall{aspect-ratio:9/16;max-width:360px}
+.clip{background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:8px;margin:6px 0}
+.clip input[type=number]{width:64px;background:#10131c;color:var(--cream);border:1px solid var(--line);border-radius:6px;padding:4px}
+textarea,input[type=text],input[type=password]{width:100%;background:#10131c;color:var(--cream);border:1px solid var(--line);border-radius:8px;padding:8px;margin:4px 0}
+pre.out{white-space:pre-wrap;background:#10131c;border:1px solid var(--line);border-radius:8px;padding:10px;min-height:60px}
+@media(max-width:640px){.grid{grid-template-columns:64px repeat(16,1fr);gap:3px}.step{height:28px}.trackname{font-size:12px}h1{font-size:22px}}
+</style>
+</head>
+<body>
+<header>
+<h1>My Music Seraphiym</h1>
+<p class="sub">Beat maker, video studio, voiceovers, and AI help — one easy studio.</p>
+</header>
+<main>
+<section class="panel">
+<div class="row">
+<button id="playBtn">▶ Play</button>
+<button class="secondary" id="clearBtn">Clear</button>
+<label>Preset
+<select id="preset">
+<option value="southern">Southern Groove</option>
+<option value="porch">Porch Stomp</option>
+<option value="gospel">Gospel Lift</option>
+<option value="empty">Empty</option>
+</select></label>
+<label>Tempo <span id="bpmVal">92</span> BPM
+<input id="bpm" type="range" min="60" max="160" value="92"></label>
+<label>Master
+<input id="master" type="range" min="0" max="100" value="80"></label>
+</div>
+<p class="small">Tap squares to build the beat. The music follows Am – F – C – G, four steps per chord.</p>
+<div id="grid" class="grid"></div>
+</section>
+
+<section class="panel">
+<h2>Mixer</h2>
+<div class="mixer" id="mixer"></div>
+</section>
+
+<section class="panel">
+<h2>Piano</h2>
+<div class="keys" id="piano"></div>
+</section>
+
+<section class="panel">
+<h2>Banjo strings</h2>
+<div class="strings" id="banjo"></div>
+</section>
+
+<section class="panel">
+<h2>Bass notes</h2>
+<div class="strings" id="bass"></div>
+</section>
+
+<section class="panel">
+<h2>Video Studio</h2>
+<p class="small">Add video clips and photos, set the order, trim each clip, then play or export. Your beat, music, and voiceover ride along in the export.</p>
+<div class="row">
+<label class="small">Add clips or photos <input id="clipFiles" type="file" accept="video/*,image/*" multiple></label>
+<label>Shape <select id="shape"><option value="wide">Wide 16:9</option><option value="tall">Tall 9:16</option></select></label>
+</div>
+<div id="clipList"></div>
+<canvas id="stage" width="1280" height="720"></canvas>
+<div class="row">
+<button id="playVideoBtn">▶ Play video</button>
+<button class="secondary" id="stopVideoBtn">Stop</button>
+<button id="exportBtn">⬇ Export video</button>
+</div>
+<label>Title on video <input id="titleText" type="text" placeholder="Type a title to show on the video"></label>
+<div class="row">
+<label>Brightness <input id="fBright" type="range" min="50" max="150" value="100"></label>
+<label>Contrast <input id="fContrast" type="range" min="50" max="150" value="100"></label>
+<label>Color <input id="fColor" type="range" min="0" max="200" value="100"></label>
+</div>
+<div class="row">
+<label>Music file <input id="musicFile" type="file" accept="audio/*"></label>
+<label>Music volume <input id="musicVol" type="range" min="0" max="100" value="60"></label>
+<label><input id="useBeat" type="checkbox"> Use my beat in the video</label>
+</div>
+<p class="small" id="videoStatus">No clips yet.</p>
+</section>
+
+<section class="panel">
+<h2>Voiceover</h2>
+<p class="small">Record your voice, or type words and hear them spoken. The recording plays in your exported video.</p>
+<div class="row">
+<button id="recBtn">● Record voice</button>
+<button class="secondary" id="playVoiceBtn">▶ Hear recording</button>
+<label>Voice volume <input id="voiceVol" type="range" min="0" max="100" value="90"></label>
+</div>
+<label>Words to speak <textarea id="ttsText" rows="3" placeholder="Type the words here"></textarea></label>
+<div class="row"><button class="secondary" id="ttsBtn">▶ Speak these words</button></div>
+<p class="small" id="voiceStatus">No recording yet.</p>
+</section>
+
+<section class="panel">
+<h2>AI Help</h2>
+<p class="small">Built-in helper works with no key. For a real AI, paste your own key below — it stays on this device only.</p>
+<label>Topic <input id="aiTopic" type="text" placeholder="What is your video or song about?"></label>
+<div class="row">
+<button class="secondary" id="aiScriptBtn">Write a video script</button>
+<button class="secondary" id="aiSongBtn">Write song lines</button>
+<button class="secondary" id="aiPlanBtn">Make an edit plan</button>
+</div>
+<label>AI key (optional) <input id="aiKey" type="password" placeholder="Paste your Gemini or OpenAI key"></label>
+<label>Model <input id="aiModel" type="text" value="gemini-3.8-flash"></label>
+<div class="row"><button id="aiAskBtn">Ask the AI</button></div>
+<pre class="out" id="aiOut">Your AI help will appear here.</pre>
+</section>
+</main>
+<script>
+const tracks=["Kick","Snare","Hat","Bass","Banjo","Piano"];
+const steps=16;
+let pattern={};
+let volumes={Kick:.9,Snare:.8,Hat:.55,Bass:.85,Banjo:.8,Piano:.75};
+let muted={};
+let ctx=null,masterGain=null,trackGains={},playing=false,currentStep=0,nextTime=0,timer=null;
+const chords=[
+ {root:110.00,notes:[220,261.63,329.63],name:"Am"},
+ {root:87.31,notes:[174.61,220,261.63],name:"F"},
+ {root:130.81,notes:[261.63,329.63,392],name:"C"},
+ {root:98.00,notes:[196,246.94,293.66],name:"G"}
+];
+const presets={
+ southern:{Kick:[0,4,8,12],Snare:[4,12],Hat:[0,2,4,6,8,10,12,14],Bass:[0,4,8,12],Banjo:[0,3,6,8,11,14],Piano:[0,8]},
+ porch:{Kick:[0,6,8,14],Snare:[4,12],Hat:[2,6,10,14],Bass:[0,6,8,14],Banjo:[0,2,4,6,8,10,12,14],Piano:[4,12]},
+ gospel:{Kick:[0,4,8,12],Snare:[4,12],Hat:[0,4,8,12],Bass:[0,8],Banjo:[2,6,10,14],Piano:[0,4,8,12]},
+ empty:{Kick:[],Snare:[],Hat:[],Bass:[],Banjo:[],Piano:[]}
+};
+function loadPreset(name){
+ pattern={};tracks.forEach(t=>{pattern[t]=Array(steps).fill(false);(presets[name][t]||[]).forEach(s=>pattern[t][s]=true);});
+ drawGrid();
+}
+function ensureAudio(){
+ if(ctx)return;
+ ctx=new (window.AudioContext||window.webkitAudioContext)();
+ masterGain=ctx.createGain();masterGain.gain.value=document.getElementById('master').value/100;masterGain.connect(ctx.destination);
+ tracks.forEach(t=>{const g=ctx.createGain();g.gain.value=volumes[t];g.connect(masterGain);trackGains[t]=g;});
+}
+function noiseBuffer(){const b=ctx.createBuffer(1,ctx.sampleRate*1,ctx.sampleRate);const d=b.getChannelData(0);for(let i=0;i<d.length;i++)d[i]=Math.random()*2-1;return b;}
+let cachedNoise=null;
+function playKick(t){const o=ctx.createOscillator(),g=ctx.createGain();o.frequency.setValueAtTime(150,t);o.frequency.exponentialRampToValueAtTime(45,t+.12);g.gain.setValueAtTime(1,t);g.gain.exponentialRampToValueAtTime(.001,t+.22);o.connect(g);g.connect(trackGains.Kick);o.start(t);o.stop(t+.24);}
+function playSnare(t){if(!cachedNoise)cachedNoise=noiseBuffer();const n=ctx.createBufferSource();n.buffer=cachedNoise;const f=ctx.createBiquadFilter();f.type='highpass';f.frequency.value=1200;const g=ctx.createGain();g.gain.setValueAtTime(.7,t);g.gain.exponentialRampToValueAtTime(.001,t+.16);n.connect(f);f.connect(g);g.connect(trackGains.Snare);n.start(t);n.stop(t+.18);}
+function playHat(t){if(!cachedNoise)cachedNoise=noiseBuffer();const n=ctx.createBufferSource();n.buffer=cachedNoise;const f=ctx.createBiquadFilter();f.type='highpass';f.frequency.value=7000;const g=ctx.createGain();g.gain.setValueAtTime(.35,t);g.gain.exponentialRampToValueAtTime(.001,t+.06);n.connect(f);f.connect(g);g.connect(trackGains.Hat);n.start(t);n.stop(t+.07);}
+function playBass(freq,t){const o=ctx.createOscillator(),f=ctx.createBiquadFilter(),g=ctx.createGain();o.type='sawtooth';o.frequency.value=freq;f.type='lowpass';f.frequency.value=500;g.gain.setValueAtTime(.8,t);g.gain.exponentialRampToValueAtTime(.001,t+.32);o.connect(f);f.connect(g);g.connect(trackGains.Bass);o.start(t);o.stop(t+.34);}
+function playBanjo(freq,t){const o=ctx.createOscillator(),o2=ctx.createOscillator(),g=ctx.createGain();o.type='square';o.frequency.value=freq;o2.type='triangle';o2.frequency.value=freq*2;g.gain.setValueAtTime(.5,t);g.gain.exponentialRampToValueAtTime(.001,t+.28);o.connect(g);o2.connect(g);g.connect(trackGains.Banjo);o.start(t);o2.start(t);o.stop(t+.3);o2.stop(t+.3);}
+function playPiano(freq,t){[1,2,3].forEach((h,i)=>{const o=ctx.createOscillator(),g=ctx.createGain();o.type=i?'sine':'triangle';o.frequency.value=freq*h;g.gain.setValueAtTime(.55/(i+1),t);g.gain.exponentialRampToValueAtTime(.001,t+.7);o.connect(g);g.connect(trackGains.Piano);o.start(t);o.stop(t+.72);});}
+function scheduleStep(step,t){
+ const chord=chords[Math.floor(step/4)%4];
+ if(pattern.Kick[step]&&!muted.Kick)playKick(t);
+ if(pattern.Snare[step]&&!muted.Snare)playSnare(t);
+ if(pattern.Hat[step]&&!muted.Hat)playHat(t);
+ if(pattern.Bass[step]&&!muted.Bass)playBass(chord.root,t);
+ if(pattern.Banjo[step]&&!muted.Banjo)playBanjo(chord.notes[step%3]*2,t);
+ if(pattern.Piano[step]&&!muted.Piano)chord.notes.forEach(n=>playPiano(n,t));
+}
+function scheduler(){
+ const bpm=+document.getElementById('bpm').value;
+ const stepDur=60/bpm/4;
+ while(nextTime<ctx.currentTime+.12){
+  scheduleStep(currentStep,nextTime);
+  const drawStep=currentStep;
+  setTimeout(()=>highlight(drawStep),Math.max(0,(nextTime-ctx.currentTime)*1000));
+  nextTime+=stepDur;currentStep=(currentStep+1)%steps;
+ }
+}
+function highlight(step){document.querySelectorAll('.step').forEach(el=>el.classList.toggle('now',+el.dataset.step===step));}
+function togglePlay(){
+ ensureAudio();ctx.resume();
+ if(playing){playing=false;clearInterval(timer);document.getElementById('playBtn').textContent='▶ Play';highlight(-1);return;}
+ playing=true;currentStep=0;nextTime=ctx.currentTime+.06;timer=setInterval(scheduler,25);document.getElementById('playBtn').textContent='⏸ Pause';
+}
+function drawGrid(){
+ const grid=document.getElementById('grid');grid.innerHTML='';
+ tracks.forEach(t=>{
+  const name=document.createElement('div');name.className='trackname';name.textContent=t;grid.appendChild(name);
+  for(let s=0;s<steps;s++){const b=document.createElement('button');b.className='step'+(s%4===0?' beat':'')+(pattern[t][s]?' on':'');b.dataset.step=s;b.setAttribute('aria-label',t+' step '+(s+1));b.onclick=()=>{pattern[t][s]=!pattern[t][s];drawGrid();};grid.appendChild(b);}
+ });
+}
+function drawMixer(){
+ const m=document.getElementById('mixer');m.innerHTML='';
+ tracks.forEach(t=>{
+  const d=document.createElement('div');d.className='mix';
+  d.innerHTML=`<b>${t}</b><input type="range" min="0" max="100" value="${volumes[t]*100}"><br><label><input type="checkbox"> Mute</label>`;
+  const range=d.querySelector('input[type=range]');const mute=d.querySelector('input[type=checkbox]');
+  range.oninput=()=>{volumes[t]=range.value/100;if(trackGains[t])trackGains[t].gain.value=volumes[t];};
+  mute.onchange=()=>{muted[t]=mute.checked;};
+  m.appendChild(d);
+ });
+}
+function noteButtons(elId,notes,fn){
+ const el=document.getElementById(elId);
+ notes.forEach(([label,freq])=>{const b=document.createElement('button');b.className='note';b.textContent=label;b.onclick=()=>{ensureAudio();ctx.resume();fn(freq,ctx.currentTime);};el.appendChild(b);});
+}
+document.getElementById('playBtn').onclick=togglePlay;
+document.getElementById('clearBtn').onclick=()=>loadPreset('empty');
+document.getElementById('preset').onchange=e=>loadPreset(e.target.value);
+document.getElementById('bpm').oninput=e=>document.getElementById('bpmVal').textContent=e.target.value;
+document.getElementById('master').oninput=e=>{if(masterGain)masterGain.gain.value=e.target.value/100;};
+loadPreset('southern');drawMixer();
+noteButtons('piano',[['C',261.63],['D',293.66],['E',329.63],['F',349.23],['G',392],['A',440],['B',493.88],['C5',523.25]],(f,t)=>playPiano(f,t));
+document.querySelectorAll('#piano .note').forEach(b=>b.className='key');
+noteButtons('banjo',[['G string',392],['D string',293.66],['G string',392],['B string',493.88],['D string',587.33]],(f,t)=>playBanjo(f,t));
+noteButtons('bass',[['A bass',110],['F bass',87.31],['C bass',130.81],['G bass',98]],(f,t)=>playBass(f,t));
+
+// ===== Video Studio =====
+let clips=[];let musicURL=null,voiceURL=null;let playingVideo=false;let stopFlag=false;
+let musicEl=new Audio();musicEl.loop=true;let voiceEl=new Audio();
+let streamDest=null,musicGain=null,voiceGain=null,musicSrc=null,voiceSrc=null;
+const stage=document.getElementById('stage');const sctx=stage.getContext('2d');
+function vstatus(t){document.getElementById('videoStatus').textContent=t;}
+document.getElementById('shape').onchange=e=>{const tall=e.target.value==='tall';stage.width=tall?720:1280;stage.height=tall?1280:720;stage.classList.toggle('tall',tall);};
+document.getElementById('clipFiles').onchange=e=>{
+ [...e.target.files].forEach(f=>{
+  const url=URL.createObjectURL(f);
+  if(f.type.startsWith('video'))clips.push({kind:'video',name:f.name,url,start:0,end:0,dur:0});
+  else clips.push({kind:'photo',name:f.name,url,start:0,end:4,dur:4});
+ });
+ drawClips();vstatus(clips.length+' clip(s) ready.');
+};
+function drawClips(){
+ const el=document.getElementById('clipList');el.innerHTML='';
+ clips.forEach((c,i)=>{
+  const d=document.createElement('div');d.className='clip';
+  d.innerHTML=`<b>${i+1}. ${c.name}</b> (${c.kind})<br>
+   <label>Start s <input type="number" min="0" step="0.5" value="${c.start}"></label>
+   <label>End s <input type="number" min="0" step="0.5" value="${c.end}"></label>
+   <button class="secondary">↑</button><button class="secondary">↓</button><button class="secondary">Remove</button>`;
+  const ins=d.querySelectorAll('input');ins[0].onchange=()=>c.start=+ins[0].value;ins[1].onchange=()=>c.end=+ins[1].value;
+  const bs=d.querySelectorAll('button');
+  bs[0].onclick=()=>{if(i>0){[clips[i-1],clips[i]]=[clips[i],clips[i-1]];drawClips();}};
+  bs[1].onclick=()=>{if(i<clips.length-1){[clips[i+1],clips[i]]=[clips[i],clips[i+1]];drawClips();}};
+  bs[2].onclick=()=>{clips.splice(i,1);drawClips();};
+  el.appendChild(d);
+ });
+}
+function drawFrame(src){
+ const W=stage.width,H=stage.height;
+ sctx.filter=`brightness(${document.getElementById('fBright').value}%) contrast(${document.getElementById('fContrast').value}%) saturate(${document.getElementById('fColor').value}%)`;
+ sctx.fillStyle='#000';sctx.fillRect(0,0,W,H);
+ const sw=src.videoWidth||src.naturalWidth,sh=src.videoHeight||src.naturalHeight;
+ const scale=Math.max(W/sw,H/sh);const dw=sw*scale,dh=sh*scale;
+ sctx.drawImage(src,(W-dw)/2,(H-dh)/2,dw,dh);
+ sctx.filter='none';
+ const t=document.getElementById('titleText').value.trim();
+ if(t){sctx.font=`bold ${Math.round(H*0.055)}px Arial`;sctx.textAlign='center';sctx.fillStyle='rgba(0,0,0,.55)';const w=sctx.measureText(t).width+40;sctx.fillRect((W-w)/2,H*0.86,w,H*0.09);sctx.fillStyle='#f5efe0';sctx.fillText(t,W/2,H*0.925);}
+}
+function playClip(c){return new Promise(res=>{
+ if(stopFlag)return res();
+ if(c.kind==='photo'){const img=new Image();img.onload=()=>{const t0=performance.now();const dur=(c.end>0?c.end:4)*1000;const tick=()=>{if(stopFlag)return res();drawFrame(img);if(performance.now()-t0<dur)requestAnimationFrame(tick);else res();};tick();};img.src=c.url;return;}
+ const v=document.createElement('video');v.src=c.url;v.muted=true;v.playsInline=true;
+ v.onloadedmetadata=()=>{v.currentTime=c.start||0;const end=c.end>0?c.end:v.duration;v.play();const tick=()=>{if(stopFlag){v.pause();return res();}drawFrame(v);if(v.currentTime<end&&!v.ended)requestAnimationFrame(tick);else{v.pause();res();}};tick();};
+ v.onerror=()=>res();
+});}
+function ensureStreamAudio(){
+ ensureAudio();ctx.resume();
+ if(!streamDest){streamDest=ctx.createMediaStreamDestination();masterGain.connect(streamDest);}
+ if(musicURL&&!musicSrc){musicSrc=ctx.createMediaElementSource(musicEl);musicGain=ctx.createGain();musicSrc.connect(musicGain);musicGain.connect(ctx.destination);musicGain.connect(streamDest);}
+ if(voiceURL&&!voiceSrc){voiceSrc=ctx.createMediaElementSource(voiceEl);voiceGain=ctx.createGain();voiceSrc.connect(voiceGain);voiceGain.connect(ctx.destination);voiceGain.connect(streamDest);}
+ if(musicGain)musicGain.gain.value=document.getElementById('musicVol').value/100;
+ if(voiceGain)voiceGain.gain.value=document.getElementById('voiceVol').value/100;
+}
+async function runVideo(exporting){
+ if(!clips.length){vstatus('Add at least one clip or photo first.');return;}
+ if(playingVideo)return;playingVideo=true;stopFlag=false;
+ ensureStreamAudio();
+ let recorder=null,chunks=[];
+ if(exporting){
+  const stream=new MediaStream([...stage.captureStream(30).getVideoTracks(),...streamDest.stream.getAudioTracks()]);
+  recorder=new MediaRecorder(stream,{mimeType:MediaRecorder.isTypeSupported('video/webm;codecs=vp9')?'video/webm;codecs=vp9':'video/webm'});
+  recorder.ondataavailable=e=>chunks.push(e.data);recorder.start(500);vstatus('Exporting… keep this screen open.');
+ } else vstatus('Playing…');
+ if(musicURL){musicEl.currentTime=0;musicEl.play();}
+ if(voiceURL){voiceEl.currentTime=0;voiceEl.play();}
+ if(document.getElementById('useBeat').checked&&!playing)togglePlay();
+ for(const c of clips){if(stopFlag)break;await playClip(c);}
+ musicEl.pause();voiceEl.pause();
+ if(document.getElementById('useBeat').checked&&playing)togglePlay();
+ if(recorder){recorder.onstop=()=>saveBlob(new Blob(chunks,{type:'video/webm'}),'seraphiym-video.webm');recorder.stop();}
+ playingVideo=false;vstatus(stopFlag?'Stopped.':'Done.');
+}
+document.getElementById('playVideoBtn').onclick=()=>runVideo(false);
+document.getElementById('exportBtn').onclick=()=>runVideo(true);
+document.getElementById('stopVideoBtn').onclick=()=>{stopFlag=true;};
+document.getElementById('musicFile').onchange=e=>{const f=e.target.files[0];if(f){musicURL=URL.createObjectURL(f);musicEl.src=musicURL;musicSrc=null;vstatus('Music added: '+f.name);}};
+document.getElementById('musicVol').oninput=()=>{if(musicGain)musicGain.gain.value=document.getElementById('musicVol').value/100;};
+document.getElementById('voiceVol').oninput=()=>{if(voiceGain)voiceGain.gain.value=document.getElementById('voiceVol').value/100;};
+function saveBlob(blob,name){
+ if(window.AndroidSaver){const r=new FileReader();r.onload=()=>{AndroidSaver.saveBase64(name,r.result.split(',')[1]);vstatus('Saved to your Downloads: '+name);};r.readAsDataURL(blob);return;}
+ const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=name;a.click();vstatus('Downloaded: '+name);
+}
+// ===== Voiceover =====
+let rec=null,recChunks=[];
+document.getElementById('recBtn').onclick=async()=>{
+ const btn=document.getElementById('recBtn');
+ if(rec&&rec.state==='recording'){rec.stop();btn.textContent='● Record voice';return;}
+ try{const stream=await navigator.mediaDevices.getUserMedia({audio:true});recChunks=[];rec=new MediaRecorder(stream);
+ rec.ondataavailable=e=>recChunks.push(e.data);
+ rec.onstop=()=>{voiceURL=URL.createObjectURL(new Blob(recChunks,{type:'audio/webm'}));voiceEl.src=voiceURL;voiceSrc=null;document.getElementById('voiceStatus').textContent='Voice recorded. It will play in your video.';stream.getTracks().forEach(t=>t.stop());};
+ rec.start();btn.textContent='■ Stop recording';document.getElementById('voiceStatus').textContent='Recording… tap Stop when done.';
+ }catch(err){document.getElementById('voiceStatus').textContent='Microphone not allowed: '+err.message;}
+};
+document.getElementById('playVoiceBtn').onclick=()=>{if(voiceURL){ensureStreamAudio();voiceEl.currentTime=0;voiceEl.play();}};
+document.getElementById('ttsBtn').onclick=()=>{const t=document.getElementById('ttsText').value.trim();if(t){speechSynthesis.cancel();speechSynthesis.speak(new SpeechSynthesisUtterance(t));}};
+// ===== AI Help =====
+const aiOut=document.getElementById('aiOut');
+function topic(){return document.getElementById('aiTopic').value.trim()||'my story';}
+document.getElementById('aiScriptBtn').onclick=()=>{aiOut.textContent=`VIDEO SCRIPT — ${topic()}\n\nOpening (0:00): "This is ${topic()}."\nScene 1: Show the strongest picture first. Say what it is and why it matters.\nScene 2: Tell the hard part plainly — what happened, in order.\nScene 3: Show the turning point. One clear sentence.\nClosing: End with the lesson and one line people will remember.\n\nTip: record the voiceover, add your music low under it, export.`;};
+document.getElementById('aiSongBtn').onclick=()=>{aiOut.textContent=`SONG LINES — ${topic()}\n\nVerse: I walked through ${topic()} with nothing in my hands\nChorus: But I am still standing, and I know where I stand\nBridge: Every scar tells the truth, every step was planned\nOutro: hum the chorus soft and let it fade.`;};
+document.getElementById('aiPlanBtn').onclick=()=>{aiOut.textContent=`EDIT PLAN — ${topic()}\n\n1. Put your best clip first (2 seconds hook).\n2. Trim every clip to only the good part.\n3. Photos: 4 seconds each.\n4. Music low under the voice; beat only where there is no talking.\n5. Title on the video: short, big, plain.\n6. Export wide for YouTube, tall for phone feeds.`;};
+document.getElementById('aiAskBtn').onclick=async()=>{
+ const key=document.getElementById('aiKey').value.trim();const model=document.getElementById('aiModel').value.trim();
+ if(!key){aiOut.textContent='Paste your AI key first, or use the built-in helper buttons above.';return;}
+ localStorage.setItem('seraphiym_ai_key',key);localStorage.setItem('seraphiym_ai_model',model);
+ aiOut.textContent='Asking…';
+ try{
+  const r=await fetch('https://generativelanguage.googleapis.com/v1beta/openai/chat/completions',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+key},body:JSON.stringify({model:model,messages:[{role:'user',content:'Help me with this music/video project: '+topic()+'. Give a short script, song lines, or edit plan as fits. Plain words.'}]})});
+  const j=await r.json();
+  aiOut.textContent=(j.choices&&j.choices[0]&&j.choices[0].message.content)||JSON.stringify(j).slice(0,500);
+ }catch(err){aiOut.textContent='AI call failed: '+err.message;}
+};
+const savedKey=localStorage.getItem('seraphiym_ai_key');if(savedKey)document.getElementById('aiKey').value=savedKey;
+const savedModel=localStorage.getItem('seraphiym_ai_model');if(savedModel)document.getElementById('aiModel').value=savedModel;
+</script>
+</body>
+</html>
