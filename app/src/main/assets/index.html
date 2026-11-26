@@ -38,6 +38,46 @@ textarea,input[type=text],input[type=password]{width:100%;background:#10131c;col
 pre.out{white-space:pre-wrap;background:#10131c;border:1px solid var(--line);border-radius:8px;padding:10px;min-height:60px}
 @media(max-width:640px){.grid{grid-template-columns:64px repeat(16,1fr);gap:3px}.step{height:28px}.trackname{font-size:12px}h1{font-size:22px}}
 </style>
+<script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js">
+// ===== Document Tools =====
+let docSel=null,docSelecting=false,docStart=null;
+function docStatus(t){document.getElementById('docStatus').textContent=t;}
+document.getElementById('docRead').onclick=async()=>{
+ if(!picImg){docStatus('Load a document photo in the Picture Editor first.');return;}
+ docStatus('Reading the words… this can take a moment.');
+ try{const r=await Tesseract.recognize(picImg.src,'eng');document.getElementById('docText').value=r.data.text.trim();docStatus('Words read. Edit them above if needed.');}
+ catch(e){docStatus('Reading failed: '+e.message);}
+};
+document.getElementById('docCopy').onclick=async()=>{
+ const t=document.getElementById('docText').value;
+ try{await navigator.clipboard.writeText(t);docStatus('Words copied.');}
+ catch(e){const ta=document.getElementById('docText');ta.select();document.execCommand('copy');docStatus('Words copied.');}
+};
+document.getElementById('docSelect').onclick=()=>{docSelecting=true;docSel=null;docStatus('Now drag on the picture to select an area.');};
+picCanvas.addEventListener('pointerdown',e=>{if(!docSelecting)return;const r=picCanvas.getBoundingClientRect();docStart={x:(e.clientX-r.left)/r.width,y:(e.clientY-r.top)/r.height};});
+picCanvas.addEventListener('pointerup',e=>{if(!docSelecting||!docStart)return;const r=picCanvas.getBoundingClientRect();const x2=(e.clientX-r.left)/r.width,y2=(e.clientY-r.top)/r.height;docSel={x:Math.min(docStart.x,x2),y:Math.min(docStart.y,y2),w:Math.abs(x2-docStart.x),h:Math.abs(y2-docStart.y)};docSelecting=false;docStatus('Area selected. Choose Cut, Remove, or Replace.');});
+function selPx(){const W=picCanvas.width,H=picCanvas.height;return{x:docSel.x*W,y:docSel.y*H,w:docSel.w*W,h:docSel.h*H};}
+document.getElementById('docCut').onclick=()=>{if(!docSel){docStatus('Select an area first.');return;}const s=selPx();const c=document.createElement('canvas');c.width=s.w;c.height=s.h;c.getContext('2d').drawImage(picCanvas,s.x,s.y,s.w,s.h,0,0,s.w,s.h);c.toBlob(b=>saveBlob(b,'cut-out.png'),'image/png');docStatus('Area cut out and saved.');};
+function coverArea(){const s=selPx();const px=pctx.getImageData(Math.max(0,s.x-2),Math.max(0,s.y-2),1,1).data;pctx.fillStyle=`rgb(${px[0]},${px[1]},${px[2]})`;pctx.fillRect(s.x,s.y,s.w,s.h);return s;}
+document.getElementById('docRemove').onclick=()=>{if(!docSel){docStatus('Select an area first.');return;}coverArea();docStatus('Area removed. Save the picture to keep it.');};
+document.getElementById('docReplaceBtn').onclick=()=>{if(!docSel){docStatus('Select an area first.');return;}const s=coverArea();const t=document.getElementById('docReplace').value.trim();pctx.fillStyle='#1a1a1a';pctx.font=`bold ${Math.round(s.h*0.6)}px Arial`;pctx.textAlign='left';pctx.fillText(t,s.x+4,s.y+s.h*0.75,s.w-8);docStatus('Words replaced. Save the picture to keep it.');};
+document.getElementById('docPasteBtn').onclick=()=>{document.getElementById('pText').value=document.getElementById('docReplace').value||document.getElementById('docText').value.split('\n')[0];renderPic();docStatus('Words pasted on the picture.');};
+// Templates
+let templates=JSON.parse(localStorage.getItem('seraphiym_templates')||'[]');
+function drawTemplates(){const el=document.getElementById('tplList');el.innerHTML='';templates.forEach((t,i)=>{const d=document.createElement('div');d.className='clip';d.innerHTML=`<b>${t.name}</b> <button class="secondary">Use</button> <button class="secondary">Delete</button>`;const bs=d.querySelectorAll('button');bs[0].onclick=()=>{document.getElementById('pText').value=t.text;document.getElementById('pCrop').value=t.crop;document.getElementById('docText').value=t.doc;renderPic();docStatus('Template applied: '+t.name);};bs[1].onclick=()=>{templates.splice(i,1);localStorage.setItem('seraphiym_templates',JSON.stringify(templates));drawTemplates();};el.appendChild(d);});}
+drawTemplates();
+document.getElementById('tplSave').onclick=()=>{const name=document.getElementById('tplName').value.trim()||'Template '+(templates.length+1);templates.push({name,text:document.getElementById('pText').value,crop:document.getElementById('pCrop').value,doc:document.getElementById('docText').value});localStorage.setItem('seraphiym_templates',JSON.stringify(templates));drawTemplates();docStatus('Template saved: '+name);};
+// Bryar document commands
+const bryarActDoc=bryarAct;
+bryarAct=function(cmd){
+ const c=cmd.toLowerCase();
+ if(c.includes('read')&&(c.includes('words')||c.includes('document')||c.includes('text'))){document.getElementById('docRead').click();return 'Reading the document words.';}
+ if(c.includes('copy')&&(c.includes('words')||c.includes('text'))){document.getElementById('docCopy').click();return 'Words copied.';}
+ if(c.includes('remove')&&(c.includes('words')||c.includes('text')||c.includes('area'))){document.getElementById('docRemove').click();return 'Removing the selected area.';}
+ if(c.includes('template')){document.getElementById('tplSave').click();return 'Template saved.';}
+ return bryarActDoc(cmd);
+};
+</script>
 </head>
 <body>
 <header>
@@ -126,6 +166,28 @@ pre.out{white-space:pre-wrap;background:#10131c;border:1px solid var(--line);bor
 <button id="pSave">⬇ Save picture</button>
 </div>
 <p class="small" id="picStatus">No picture loaded.</p>
+</section>
+
+<section class="panel">
+<h2>Document Tools</h2>
+<p class="small">For photos of documents. Load the photo in the Picture Editor above, then work here: read the words, copy them, cut an area out, remove words, replace words, and save templates.</p>
+<div class="row">
+<button id="docRead">Read the words</button>
+<button class="secondary" id="docCopy">Copy words</button>
+<button class="secondary" id="docSelect">Select an area</button>
+</div>
+<label>Words found <textarea id="docText" rows="6" placeholder="The words from the document will appear here. You can edit them."></textarea></label>
+<label>Replacement words <input id="docReplace" type="text" placeholder="New words to put in place"></label>
+<div class="row">
+<button class="secondary" id="docCut">Cut area out</button>
+<button class="secondary" id="docRemove">Remove area</button>
+<button class="secondary" id="docReplaceBtn">Replace area with words</button>
+<button class="secondary" id="docPasteBtn">Paste words on picture</button>
+</div>
+<h3>Templates</h3>
+<div class="row"><input id="tplName" type="text" placeholder="Template name"><button class="secondary" id="tplSave">Save template</button></div>
+<div id="tplList"></div>
+<p class="small" id="docStatus">Load a document photo in the Picture Editor first.</p>
 </section>
 <section class="panel">
 <h2>Video Studio</h2>
@@ -527,6 +589,45 @@ bryarAct=function(cmd){
  if(c.includes('black and white')||c.includes('black & white')){picGray=true;renderPic();return 'Black and white set.';}
  if(c.includes('save picture')){document.getElementById('pSave').click();return 'Saving your picture.';}
  return bryarActPic(cmd);
+};
+
+// ===== Document Tools =====
+let docSel=null,docSelecting=false,docStart=null;
+function docStatus(t){document.getElementById('docStatus').textContent=t;}
+document.getElementById('docRead').onclick=async()=>{
+ if(!picImg){docStatus('Load a document photo in the Picture Editor first.');return;}
+ docStatus('Reading the words… this can take a moment.');
+ try{const r=await Tesseract.recognize(picImg.src,'eng');document.getElementById('docText').value=r.data.text.trim();docStatus('Words read. Edit them above if needed.');}
+ catch(e){docStatus('Reading failed: '+e.message);}
+};
+document.getElementById('docCopy').onclick=async()=>{
+ const t=document.getElementById('docText').value;
+ try{await navigator.clipboard.writeText(t);docStatus('Words copied.');}
+ catch(e){const ta=document.getElementById('docText');ta.select();document.execCommand('copy');docStatus('Words copied.');}
+};
+document.getElementById('docSelect').onclick=()=>{docSelecting=true;docSel=null;docStatus('Now drag on the picture to select an area.');};
+picCanvas.addEventListener('pointerdown',e=>{if(!docSelecting)return;const r=picCanvas.getBoundingClientRect();docStart={x:(e.clientX-r.left)/r.width,y:(e.clientY-r.top)/r.height};});
+picCanvas.addEventListener('pointerup',e=>{if(!docSelecting||!docStart)return;const r=picCanvas.getBoundingClientRect();const x2=(e.clientX-r.left)/r.width,y2=(e.clientY-r.top)/r.height;docSel={x:Math.min(docStart.x,x2),y:Math.min(docStart.y,y2),w:Math.abs(x2-docStart.x),h:Math.abs(y2-docStart.y)};docSelecting=false;docStatus('Area selected. Choose Cut, Remove, or Replace.');});
+function selPx(){const W=picCanvas.width,H=picCanvas.height;return{x:docSel.x*W,y:docSel.y*H,w:docSel.w*W,h:docSel.h*H};}
+document.getElementById('docCut').onclick=()=>{if(!docSel){docStatus('Select an area first.');return;}const s=selPx();const c=document.createElement('canvas');c.width=s.w;c.height=s.h;c.getContext('2d').drawImage(picCanvas,s.x,s.y,s.w,s.h,0,0,s.w,s.h);c.toBlob(b=>saveBlob(b,'cut-out.png'),'image/png');docStatus('Area cut out and saved.');};
+function coverArea(){const s=selPx();const px=pctx.getImageData(Math.max(0,s.x-2),Math.max(0,s.y-2),1,1).data;pctx.fillStyle=`rgb(${px[0]},${px[1]},${px[2]})`;pctx.fillRect(s.x,s.y,s.w,s.h);return s;}
+document.getElementById('docRemove').onclick=()=>{if(!docSel){docStatus('Select an area first.');return;}coverArea();docStatus('Area removed. Save the picture to keep it.');};
+document.getElementById('docReplaceBtn').onclick=()=>{if(!docSel){docStatus('Select an area first.');return;}const s=coverArea();const t=document.getElementById('docReplace').value.trim();pctx.fillStyle='#1a1a1a';pctx.font=`bold ${Math.round(s.h*0.6)}px Arial`;pctx.textAlign='left';pctx.fillText(t,s.x+4,s.y+s.h*0.75,s.w-8);docStatus('Words replaced. Save the picture to keep it.');};
+document.getElementById('docPasteBtn').onclick=()=>{document.getElementById('pText').value=document.getElementById('docReplace').value||document.getElementById('docText').value.split('\n')[0];renderPic();docStatus('Words pasted on the picture.');};
+// Templates
+let templates=JSON.parse(localStorage.getItem('seraphiym_templates')||'[]');
+function drawTemplates(){const el=document.getElementById('tplList');el.innerHTML='';templates.forEach((t,i)=>{const d=document.createElement('div');d.className='clip';d.innerHTML=`<b>${t.name}</b> <button class="secondary">Use</button> <button class="secondary">Delete</button>`;const bs=d.querySelectorAll('button');bs[0].onclick=()=>{document.getElementById('pText').value=t.text;document.getElementById('pCrop').value=t.crop;document.getElementById('docText').value=t.doc;renderPic();docStatus('Template applied: '+t.name);};bs[1].onclick=()=>{templates.splice(i,1);localStorage.setItem('seraphiym_templates',JSON.stringify(templates));drawTemplates();};el.appendChild(d);});}
+drawTemplates();
+document.getElementById('tplSave').onclick=()=>{const name=document.getElementById('tplName').value.trim()||'Template '+(templates.length+1);templates.push({name,text:document.getElementById('pText').value,crop:document.getElementById('pCrop').value,doc:document.getElementById('docText').value});localStorage.setItem('seraphiym_templates',JSON.stringify(templates));drawTemplates();docStatus('Template saved: '+name);};
+// Bryar document commands
+const bryarActDoc=bryarAct;
+bryarAct=function(cmd){
+ const c=cmd.toLowerCase();
+ if(c.includes('read')&&(c.includes('words')||c.includes('document')||c.includes('text'))){document.getElementById('docRead').click();return 'Reading the document words.';}
+ if(c.includes('copy')&&(c.includes('words')||c.includes('text'))){document.getElementById('docCopy').click();return 'Words copied.';}
+ if(c.includes('remove')&&(c.includes('words')||c.includes('text')||c.includes('area'))){document.getElementById('docRemove').click();return 'Removing the selected area.';}
+ if(c.includes('template')){document.getElementById('tplSave').click();return 'Template saved.';}
+ return bryarActDoc(cmd);
 };
 </script>
 </body>
