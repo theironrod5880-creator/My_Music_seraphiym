@@ -101,7 +101,7 @@ picCanvas.classList.add('pinned');stage.classList.add('pinned');
 const previewWrap=document.getElementById('previewWrap');
 previewWrap.appendChild(stage);previewWrap.appendChild(picCanvas);
 document.getElementById('pinPic')?.remove();document.getElementById('pinStage')?.remove();
-const tabDefs=[['Bryar','Bryar'],['Beat','Beat Maker'],['Song','Song Studio'],['Video','Video Studio'],['Picture','Picture Editor'],['Documents','Document Tools'],['Voice','Voiceover'],['AI','AI Help']];
+const tabDefs=[['Bryar','Bryar'],['Beat','Beat Maker'],['Song','Song Studio'],['Video','Video Studio'],['Picture','Picture Editor'],['Documents','Document Tools'],['Voice','Voiceover'],['Vaults','Archival Vaults'],['AI','AI Help']];
 const sections=[...document.querySelectorAll('main section.panel')];
 function sectionFor(head){return sections.find(sec=>{const h=sec.querySelector('h2');return h&&h.textContent.trim()===head;});}
 const tabBar=document.getElementById('tabBar');
@@ -149,6 +149,42 @@ bryarAct=function(cmd){
  const tab=tabDefs.find(([l])=>c.includes('open '+l.toLowerCase())||c.includes('go to '+l.toLowerCase()));
  if(tab){showTab(tab[0]);return tab[0]+' is open.';}
  return bryarActShell(cmd);
+};
+
+// ===== Archival Floor v2.4 — Bryar the Archivist =====
+const VAULTS=['Vault 1: The Journey','Vault 2: The Math','Vault 3: The Testimony','Vault 4: The Public Work','Vault 5: Production','Vault 6: The Floor & Rules'];
+let blocks=JSON.parse(localStorage.getItem('bryar_blocks')||'[]');
+function vaultFor(t){const c=t.toLowerCase();
+ if(/5880|timeline|paradox|daniel|1914|chronolog/.test(c))return 1;
+ if(/cell|vow|dream|testimony|prison/.test(c))return 2;
+ if(/book|chapter|public|article/.test(c))return 3;
+ if(/suno|song|github|video|album|production/.test(c))return 4;
+ if(/rule|floor|stauros|seal|protocol/.test(c))return 5;
+ return 0;}
+function drawVaults(){const el=document.getElementById('vaultList');el.innerHTML='';VAULTS.forEach((v,i)=>{const d=document.createElement('div');d.className='clip';const mine=blocks.filter(b=>b.vault===i);d.innerHTML=`<b>${v}</b> — ${mine.length} block(s)`+mine.map(b=>`<div class="small">Block ${b.n} ${b.stamp}: ${b.text.slice(0,80)}</div>`).join('');el.appendChild(d);});}
+drawVaults();
+document.getElementById('intakeBtn').onclick=()=>{
+ const t=document.getElementById('intakeText').value.trim();if(!t)return;
+ if(/passphrase|pin|one-time code/i.test(t)){bryarSay('SEALED DATA DETECTED: a passphrase or code is named in that text. I will not open or use it.');return;}
+ const v=vaultFor(t);const n=blocks.length+1;
+ blocks.push({n,vault:v,stamp:document.getElementById('domainStamp').value,text:t});
+ localStorage.setItem('bryar_blocks',JSON.stringify(blocks));drawVaults();
+ bryarSay('Filed as Storage Block '+n+' in '+VAULTS[v]+'. Copy it to your external storage to keep it safe.');
+};
+document.getElementById('handoffBtn').onclick=()=>{
+ const last=blocks.slice(-3).map(b=>'Block '+b.n).join(', ')||'none yet';
+ document.getElementById('handoffOut').textContent='HANDOFF NOTE\n1. Blocks to refill context: '+last+'\n2. Open item: studio work in progress.\n3. Rule 8 collisions unresolved: none in this app.';
+};
+// Bryar stamps every reply with the domain and files on command
+const bryarSayBase=bryarSay;
+bryarSay=function(t){bryarSayBase(document.getElementById('domainStamp').value+' '+t);};
+const bryarActArch=bryarAct;
+bryarAct=function(cmd){
+ const c=cmd.toLowerCase();
+ if(c.includes('safe harbor')){document.getElementById('handoffBtn').click();return 'Handoff note written. Work continues.';}
+ if(c.startsWith('file ')){document.getElementById('intakeText').value=cmd.slice(5);document.getElementById('intakeBtn').click();return 'Filing that now.';}
+ if(c.includes('open vaults')||c.includes('go to vaults')){showTab('Vaults');return 'Vaults are open.';}
+ return bryarActArch(cmd);
 };
 </script>
 </head>
@@ -325,6 +361,16 @@ bryarAct=function(cmd){
 <p class="small" id="voiceStatus">No recording yet.</p>
 </section>
 
+
+<section class="panel">
+<h2>Archival Vaults</h2>
+<p class="small">Bryar the Archivist files work into six vaults with numbered storage blocks. Nothing is deleted; corrections are logged, never erased.</p>
+<label>Domain stamp <select id="domainStamp"><option>[STUDY]</option><option>[PUBLIC]</option><option>[INTERNAL]</option></select></label>
+<label>Paste a log or note to file <textarea id="intakeText" rows="5" placeholder="Paste text here"></textarea></label>
+<div class="row"><button id="intakeBtn">File storage block</button><button class="secondary" id="handoffBtn">Safe Harbor: Reset</button></div>
+<div id="vaultList"></div>
+<pre class="out" id="handoffOut"></pre>
+</section>
 <section class="panel">
 <h2>AI Help</h2>
 <p class="small">Built-in helper works with no key. For a real AI, paste your own key below — it stays on this device only.</p>
@@ -717,7 +763,7 @@ picCanvas.classList.add('pinned');stage.classList.add('pinned');
 const previewWrap=document.getElementById('previewWrap');
 previewWrap.appendChild(stage);previewWrap.appendChild(picCanvas);
 document.getElementById('pinPic')?.remove();document.getElementById('pinStage')?.remove();
-const tabDefs=[['Bryar','Bryar'],['Beat','Beat Maker'],['Song','Song Studio'],['Video','Video Studio'],['Picture','Picture Editor'],['Documents','Document Tools'],['Voice','Voiceover'],['AI','AI Help']];
+const tabDefs=[['Bryar','Bryar'],['Beat','Beat Maker'],['Song','Song Studio'],['Video','Video Studio'],['Picture','Picture Editor'],['Documents','Document Tools'],['Voice','Voiceover'],['Vaults','Archival Vaults'],['AI','AI Help']];
 const sections=[...document.querySelectorAll('main section.panel')];
 function sectionFor(head){return sections.find(sec=>{const h=sec.querySelector('h2');return h&&h.textContent.trim()===head;});}
 const tabBar=document.getElementById('tabBar');
@@ -765,6 +811,42 @@ bryarAct=function(cmd){
  const tab=tabDefs.find(([l])=>c.includes('open '+l.toLowerCase())||c.includes('go to '+l.toLowerCase()));
  if(tab){showTab(tab[0]);return tab[0]+' is open.';}
  return bryarActShell(cmd);
+};
+
+// ===== Archival Floor v2.4 — Bryar the Archivist =====
+const VAULTS=['Vault 1: The Journey','Vault 2: The Math','Vault 3: The Testimony','Vault 4: The Public Work','Vault 5: Production','Vault 6: The Floor & Rules'];
+let blocks=JSON.parse(localStorage.getItem('bryar_blocks')||'[]');
+function vaultFor(t){const c=t.toLowerCase();
+ if(/5880|timeline|paradox|daniel|1914|chronolog/.test(c))return 1;
+ if(/cell|vow|dream|testimony|prison/.test(c))return 2;
+ if(/book|chapter|public|article/.test(c))return 3;
+ if(/suno|song|github|video|album|production/.test(c))return 4;
+ if(/rule|floor|stauros|seal|protocol/.test(c))return 5;
+ return 0;}
+function drawVaults(){const el=document.getElementById('vaultList');el.innerHTML='';VAULTS.forEach((v,i)=>{const d=document.createElement('div');d.className='clip';const mine=blocks.filter(b=>b.vault===i);d.innerHTML=`<b>${v}</b> — ${mine.length} block(s)`+mine.map(b=>`<div class="small">Block ${b.n} ${b.stamp}: ${b.text.slice(0,80)}</div>`).join('');el.appendChild(d);});}
+drawVaults();
+document.getElementById('intakeBtn').onclick=()=>{
+ const t=document.getElementById('intakeText').value.trim();if(!t)return;
+ if(/passphrase|pin|one-time code/i.test(t)){bryarSay('SEALED DATA DETECTED: a passphrase or code is named in that text. I will not open or use it.');return;}
+ const v=vaultFor(t);const n=blocks.length+1;
+ blocks.push({n,vault:v,stamp:document.getElementById('domainStamp').value,text:t});
+ localStorage.setItem('bryar_blocks',JSON.stringify(blocks));drawVaults();
+ bryarSay('Filed as Storage Block '+n+' in '+VAULTS[v]+'. Copy it to your external storage to keep it safe.');
+};
+document.getElementById('handoffBtn').onclick=()=>{
+ const last=blocks.slice(-3).map(b=>'Block '+b.n).join(', ')||'none yet';
+ document.getElementById('handoffOut').textContent='HANDOFF NOTE\n1. Blocks to refill context: '+last+'\n2. Open item: studio work in progress.\n3. Rule 8 collisions unresolved: none in this app.';
+};
+// Bryar stamps every reply with the domain and files on command
+const bryarSayBase=bryarSay;
+bryarSay=function(t){bryarSayBase(document.getElementById('domainStamp').value+' '+t);};
+const bryarActArch=bryarAct;
+bryarAct=function(cmd){
+ const c=cmd.toLowerCase();
+ if(c.includes('safe harbor')){document.getElementById('handoffBtn').click();return 'Handoff note written. Work continues.';}
+ if(c.startsWith('file ')){document.getElementById('intakeText').value=cmd.slice(5);document.getElementById('intakeBtn').click();return 'Filing that now.';}
+ if(c.includes('open vaults')||c.includes('go to vaults')){showTab('Vaults');return 'Vaults are open.';}
+ return bryarActArch(cmd);
 };
 </script>
 </body>
