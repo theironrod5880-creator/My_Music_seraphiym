@@ -101,7 +101,7 @@ picCanvas.classList.add('pinned');stage.classList.add('pinned');
 const previewWrap=document.getElementById('previewWrap');
 previewWrap.appendChild(stage);previewWrap.appendChild(picCanvas);
 document.getElementById('pinPic')?.remove();document.getElementById('pinStage')?.remove();
-const tabDefs=[['Bryar','Bryar'],['Beat','Beat Maker'],['Song','Song Studio'],['Video','Video Studio'],['Picture','Picture Editor'],['Documents','Document Tools'],['Voice','Voiceover'],['Vaults','Archival Vaults'],['AI','AI Help']];
+const tabDefs=[['Bryar','Bryar'],['Beat','Beat Maker'],['Song','Song Studio'],['Video','Video Studio'],['Picture','Picture Editor'],['Documents','Document Tools'],['Voice','Voiceover'],['Vaults','Archival Vaults'],['AEGIS','AEGIS'],['AI','AI Help']];
 const sections=[...document.querySelectorAll('main section.panel')];
 function sectionFor(head){return sections.find(sec=>{const h=sec.querySelector('h2');return h&&h.textContent.trim()===head;});}
 const tabBar=document.getElementById('tabBar');
@@ -186,6 +186,34 @@ bryarAct=function(cmd){
  if(c.includes('open vaults')||c.includes('go to vaults')){showTab('Vaults');return 'Vaults are open.';}
  return bryarActArch(cmd);
 };
+
+// ===== AEGIS HUD =====
+function aegisLog(msg){const el=document.getElementById('aegisLog');const t=new Date().toLocaleTimeString();el.textContent+=`[${t}] ${msg}\n`;}
+function gb(b){return (b/1073741824).toFixed(1)+' GB';}
+function aegisScan(){
+ let info=null;
+ if(window.AndroidSystem){try{info=JSON.parse(AndroidSystem.getSystemInfo());}catch(e){}}
+ const hud=document.getElementById('aegisHud');
+ if(info&&!info.error){
+  hud.textContent=`AEGIS // SEC-HUD\nDevice: ${info.maker} ${info.model}\nAndroid: ${info.android} (SDK ${info.sdk})\nBattery: ${info.battery}%${info.charging?' charging':''}\nStorage free: ${gb(info.storageFree)} of ${gb(info.storageTotal)}\nMemory free: ${gb(info.ramFree)} of ${gb(info.ramTotal)}\nCPU cores: ${info.cores}\nNetwork: ${info.network}\nUptime: ${Math.round(info.uptimeMs/60000)} min\nStatus: SECURE`;
+ }else{
+  hud.textContent=`AEGIS // SEC-HUD (browser mode)\nOnline: ${navigator.onLine}\nCPU cores: ${navigator.hardwareConcurrency||'?'}\nMemory: ${navigator.deviceMemory||'?'} GB\nFull phone data needs the installed app.`;
+ }
+ aegisLog('Scan complete. System data read.');
+}
+document.getElementById('aegisScan').onclick=aegisScan;
+document.getElementById('aegisLedger').onclick=()=>{document.getElementById('aegisOut').textContent=`Repo: My_Music_seraphiym\nStorage blocks filed: ${blocks.length}\nTasks: ${JSON.parse(localStorage.getItem('bryar_tasks')||'[]').length}\nNotes: ${JSON.parse(localStorage.getItem('bryar_notes')||'[]').length}`;aegisLog('Ledger read.');};
+document.getElementById('aegisStorage').onclick=()=>{let out='Local storage:\n';for(let i=0;i<localStorage.length;i++){const k=localStorage.key(i);out+=k+': '+(localStorage.getItem(k)||'').length+' chars\n';}document.getElementById('aegisOut').textContent=out;aegisLog('Local storage listed.');};
+document.getElementById('aegisRun').onclick=()=>{
+ const c=document.getElementById('aegisCmd').value.trim().toLowerCase();const out=document.getElementById('aegisOut');
+ if(c==='help')out.textContent='Commands: status, scan, ledger, storage, help';
+ else if(c==='status'||c==='scan')aegisScan();
+ else if(c==='ledger')document.getElementById('aegisLedger').click();
+ else if(c==='storage')document.getElementById('aegisStorage').click();
+ else out.textContent='Unknown command. Type help.';
+};
+const bryarActAegis=bryarAct;
+bryarAct=function(cmd){const c=cmd.toLowerCase();if(c.includes('aegis')||c.includes('scan')){showTab('AEGIS');aegisScan();return 'AEGIS scan done.';}return bryarActAegis(cmd);};
 </script>
 </head>
 <body>
@@ -370,6 +398,18 @@ bryarAct=function(cmd){
 <div class="row"><button id="intakeBtn">File storage block</button><button class="secondary" id="handoffBtn">Safe Harbor: Reset</button></div>
 <div id="vaultList"></div>
 <pre class="out" id="handoffOut"></pre>
+</section>
+
+<section class="panel">
+<h2>AEGIS</h2>
+<p class="small">AEGIS // SEC-HUD — reads your phone's own system data through the app bridge: battery, storage, memory, network, device.</p>
+<div class="row"><button id="aegisScan">Initiate scan</button><button class="secondary" id="aegisLedger">Repo ledger</button><button class="secondary" id="aegisStorage">Local storage</button></div>
+<pre class="out" id="aegisHud">Press Initiate scan.</pre>
+<pre class="out" id="aegisLog"></pre>
+<label>Terminal <input id="aegisCmd" placeholder="help, status, scan, ledger, storage"></label>
+<div class="row"><button id="aegisRun">Run</button></div>
+<pre class="out" id="aegisOut"></pre>
+<p class="small">USB OTG and deeper phone data (files, contacts, calendar) need native Android permissions added to the app one at a time — the web page alone cannot reach them.</p>
 </section>
 <section class="panel">
 <h2>AI Help</h2>
@@ -763,7 +803,7 @@ picCanvas.classList.add('pinned');stage.classList.add('pinned');
 const previewWrap=document.getElementById('previewWrap');
 previewWrap.appendChild(stage);previewWrap.appendChild(picCanvas);
 document.getElementById('pinPic')?.remove();document.getElementById('pinStage')?.remove();
-const tabDefs=[['Bryar','Bryar'],['Beat','Beat Maker'],['Song','Song Studio'],['Video','Video Studio'],['Picture','Picture Editor'],['Documents','Document Tools'],['Voice','Voiceover'],['Vaults','Archival Vaults'],['AI','AI Help']];
+const tabDefs=[['Bryar','Bryar'],['Beat','Beat Maker'],['Song','Song Studio'],['Video','Video Studio'],['Picture','Picture Editor'],['Documents','Document Tools'],['Voice','Voiceover'],['Vaults','Archival Vaults'],['AEGIS','AEGIS'],['AI','AI Help']];
 const sections=[...document.querySelectorAll('main section.panel')];
 function sectionFor(head){return sections.find(sec=>{const h=sec.querySelector('h2');return h&&h.textContent.trim()===head;});}
 const tabBar=document.getElementById('tabBar');
@@ -848,6 +888,34 @@ bryarAct=function(cmd){
  if(c.includes('open vaults')||c.includes('go to vaults')){showTab('Vaults');return 'Vaults are open.';}
  return bryarActArch(cmd);
 };
+
+// ===== AEGIS HUD =====
+function aegisLog(msg){const el=document.getElementById('aegisLog');const t=new Date().toLocaleTimeString();el.textContent+=`[${t}] ${msg}\n`;}
+function gb(b){return (b/1073741824).toFixed(1)+' GB';}
+function aegisScan(){
+ let info=null;
+ if(window.AndroidSystem){try{info=JSON.parse(AndroidSystem.getSystemInfo());}catch(e){}}
+ const hud=document.getElementById('aegisHud');
+ if(info&&!info.error){
+  hud.textContent=`AEGIS // SEC-HUD\nDevice: ${info.maker} ${info.model}\nAndroid: ${info.android} (SDK ${info.sdk})\nBattery: ${info.battery}%${info.charging?' charging':''}\nStorage free: ${gb(info.storageFree)} of ${gb(info.storageTotal)}\nMemory free: ${gb(info.ramFree)} of ${gb(info.ramTotal)}\nCPU cores: ${info.cores}\nNetwork: ${info.network}\nUptime: ${Math.round(info.uptimeMs/60000)} min\nStatus: SECURE`;
+ }else{
+  hud.textContent=`AEGIS // SEC-HUD (browser mode)\nOnline: ${navigator.onLine}\nCPU cores: ${navigator.hardwareConcurrency||'?'}\nMemory: ${navigator.deviceMemory||'?'} GB\nFull phone data needs the installed app.`;
+ }
+ aegisLog('Scan complete. System data read.');
+}
+document.getElementById('aegisScan').onclick=aegisScan;
+document.getElementById('aegisLedger').onclick=()=>{document.getElementById('aegisOut').textContent=`Repo: My_Music_seraphiym\nStorage blocks filed: ${blocks.length}\nTasks: ${JSON.parse(localStorage.getItem('bryar_tasks')||'[]').length}\nNotes: ${JSON.parse(localStorage.getItem('bryar_notes')||'[]').length}`;aegisLog('Ledger read.');};
+document.getElementById('aegisStorage').onclick=()=>{let out='Local storage:\n';for(let i=0;i<localStorage.length;i++){const k=localStorage.key(i);out+=k+': '+(localStorage.getItem(k)||'').length+' chars\n';}document.getElementById('aegisOut').textContent=out;aegisLog('Local storage listed.');};
+document.getElementById('aegisRun').onclick=()=>{
+ const c=document.getElementById('aegisCmd').value.trim().toLowerCase();const out=document.getElementById('aegisOut');
+ if(c==='help')out.textContent='Commands: status, scan, ledger, storage, help';
+ else if(c==='status'||c==='scan')aegisScan();
+ else if(c==='ledger')document.getElementById('aegisLedger').click();
+ else if(c==='storage')document.getElementById('aegisStorage').click();
+ else out.textContent='Unknown command. Type help.';
+};
+const bryarActAegis=bryarAct;
+bryarAct=function(cmd){const c=cmd.toLowerCase();if(c.includes('aegis')||c.includes('scan')){showTab('AEGIS');aegisScan();return 'AEGIS scan done.';}return bryarActAegis(cmd);};
 </script>
 </body>
 </html>
