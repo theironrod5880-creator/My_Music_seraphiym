@@ -36,7 +36,19 @@ canvas#stage.tall{aspect-ratio:9/16;max-width:360px}
 .clip input[type=number]{width:64px;background:#10131c;color:var(--cream);border:1px solid var(--line);border-radius:6px;padding:4px}
 textarea,input[type=text],input[type=password]{width:100%;background:#10131c;color:var(--cream);border:1px solid var(--line);border-radius:8px;padding:8px;margin:4px 0}
 pre.out{white-space:pre-wrap;background:#10131c;border:1px solid var(--line);border-radius:8px;padding:10px;min-height:60px}
-#picCanvas.pinned,#stage.pinned{position:fixed;right:10px;bottom:10px;width:190px;max-width:190px;z-index:99;box-shadow:0 4px 18px rgba(0,0,0,.6)}
+
+body{display:flex;flex-direction:column;height:100dvh;overflow:hidden}
+header{flex:0 0 auto}
+#previewWrap{flex:0 0 auto;background:#0b0e16;border-bottom:1px solid var(--line);padding:8px;text-align:center}
+#previewWrap canvas{max-height:32vh;width:auto;max-width:100%}
+#tabBar{flex:0 0 auto;display:flex;gap:6px;overflow-x:auto;padding:8px;background:var(--panel);border-bottom:1px solid var(--line)}
+#tabBar button{white-space:nowrap;padding:9px 13px;font-size:14px}
+#tabBar button.active{background:var(--gold);color:#171106}
+main{flex:1 1 auto;overflow-y:auto}
+.chips{display:flex;gap:6px;flex-wrap:wrap;margin:8px 0}
+.chips button{padding:7px 11px;font-size:13px}
+.layerRow{display:flex;gap:8px;align-items:center;background:var(--panel2);border-radius:8px;padding:7px;margin:5px 0}
+
 @media(max-width:640px){.grid{grid-template-columns:64px repeat(16,1fr);gap:3px}.step{height:28px}.trackname{font-size:12px}h1{font-size:22px}}
 </style>
 <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js">
@@ -84,6 +96,53 @@ bryarAct=function(cmd){
 document.getElementById('pinPic').onclick=()=>{picCanvas.classList.toggle('pinned');};
 document.getElementById('pinStage').onclick=()=>{stage.classList.toggle('pinned');};
 picCanvas.classList.add('pinned');stage.classList.add('pinned');
+
+// ===== App shell: stationary preview, tabs, layers =====
+const previewWrap=document.getElementById('previewWrap');
+previewWrap.appendChild(stage);previewWrap.appendChild(picCanvas);
+document.getElementById('pinPic')?.remove();document.getElementById('pinStage')?.remove();
+const tabDefs=[['Bryar','Bryar'],['Beat','Beat Maker'],['Song','Song Studio'],['Video','Video Studio'],['Picture','Picture Editor'],['Documents','Document Tools'],['Voice','Voiceover'],['AI','AI Help']];
+const sections=[...document.querySelectorAll('main section.panel')];
+function sectionFor(head){return sections.find(sec=>{const h=sec.querySelector('h2');return h&&h.textContent.trim()===head;});}
+const tabBar=document.getElementById('tabBar');
+function showTab(name){
+ tabDefs.forEach(([label,head])=>{const sec=sectionFor(head);if(sec)sec.style.display=(label===name)?'':'none';});
+ [...tabBar.children].forEach(b=>b.classList.toggle('active',b.dataset.tab===name));
+ stage.style.display=(name==='Video')?'':'none';
+ picCanvas.style.display=(name==='Picture'||name==='Documents')?'':'none';
+ previewWrap.style.display=(name==='Video'||name==='Picture'||name==='Documents')?'':'none';
+}
+tabDefs.forEach(([label])=>{const b=document.createElement('button');b.className='secondary';b.dataset.tab=label;b.textContent=label;b.onclick=()=>showTab(label);tabBar.appendChild(b);});
+showTab('Bryar');
+// Suggestion chips like the big AI apps
+const chips=document.createElement('div');chips.className='chips';
+['Make me a beat','Write lyrics','Create song','Play my video','Read the words','What can you do?'].forEach(t=>{const b=document.createElement('button');b.className='secondary';b.textContent=t;b.onclick=()=>bryarReply(t);chips.appendChild(b);});
+document.getElementById('bryarLog').after(chips);
+// Layers for the picture
+const layers={base:true,draw:true,text:true};
+const layerBox=document.createElement('div');
+layerBox.innerHTML='<h3>Layers</h3>'+[['base','Picture'],['draw','Drawings'],['text','Words']].map(([k,l])=>`<div class="layerRow"><label><input type="checkbox" data-layer="${k}" checked> ${l} layer</label></div>`).join('');
+document.getElementById('picStatus').before(layerBox);
+layerBox.querySelectorAll('input').forEach(cb=>cb.onchange=()=>{layers[cb.dataset.layer]=cb.checked;renderPic();});
+const renderPicBase=renderPic;
+renderPic=function(){
+ if(!picImg)return;
+ const crop=document.getElementById('pCrop').value;let W=1080,H=1080;
+ if(crop==='tall'){W=720;H=1280;}else if(crop==='wide'){W=1280;H=720;}else if(crop==='free'){H=Math.round(1080*picImg.naturalHeight/picImg.naturalWidth);}
+ picCanvas.width=W;picCanvas.height=H;
+ if(layers.base){pctx.save();pctx.filter=`brightness(${document.getElementById('pBright').value}%) contrast(${document.getElementById('pContrast').value}%) saturate(${document.getElementById('pColor').value}%) sepia(${document.getElementById('pWarm').value}%)${picGray?' grayscale(100%)':''}`;pctx.translate(W/2,H/2);pctx.rotate(picRot*Math.PI/180);if(picFlip)pctx.scale(-1,1);const sw2=(picRot%180!==0);const tw=sw2?H:W,th=sw2?W:H;const sc=Math.max(tw/picImg.naturalWidth,th/picImg.naturalHeight);pctx.drawImage(picImg,-picImg.naturalWidth*sc/2,-picImg.naturalHeight*sc/2,picImg.naturalWidth*sc,picImg.naturalHeight*sc);pctx.restore();}
+ if(layers.draw)drawStack.forEach(seg=>{pctx.strokeStyle=seg.color;pctx.lineWidth=seg.size;pctx.lineCap='round';pctx.beginPath();seg.points.forEach((pt,i)=>{const x=pt.x*W,y=pt.y*H;i?pctx.lineTo(x,y):pctx.moveTo(x,y);});pctx.stroke();});
+ const t=document.getElementById('pText').value.trim();
+ if(layers.text&&t){pctx.font=`bold ${Math.round(H*0.06)}px Arial`;pctx.textAlign='center';pctx.fillStyle='rgba(0,0,0,.5)';const w=pctx.measureText(t).width+36;pctx.fillRect((W-w)/2,H*0.88,w,H*0.09);pctx.fillStyle='#f5efe0';pctx.fillText(t,W/2,H*0.945);}
+};
+// Bryar opens tabs by command
+const bryarActShell=bryarAct;
+bryarAct=function(cmd){
+ const c=cmd.toLowerCase();
+ const tab=tabDefs.find(([l])=>c.includes('open '+l.toLowerCase())||c.includes('go to '+l.toLowerCase()));
+ if(tab){showTab(tab[0]);return tab[0]+' is open.';}
+ return bryarActShell(cmd);
+};
 </script>
 </head>
 <body>
@@ -91,6 +150,8 @@ picCanvas.classList.add('pinned');stage.classList.add('pinned');
 <h1>My Music Seraphiym</h1>
 <p class="sub">Bryar hosts this studio — beat maker, video, voiceovers, tasks, and AI help in one home.</p>
 </header>
+<div id="previewWrap"></div>
+<nav id="tabBar"></nav>
 <main>
 
 <section class="panel" id="bryarPanel">
@@ -644,6 +705,53 @@ bryarAct=function(cmd){
 document.getElementById('pinPic').onclick=()=>{picCanvas.classList.toggle('pinned');};
 document.getElementById('pinStage').onclick=()=>{stage.classList.toggle('pinned');};
 picCanvas.classList.add('pinned');stage.classList.add('pinned');
+
+// ===== App shell: stationary preview, tabs, layers =====
+const previewWrap=document.getElementById('previewWrap');
+previewWrap.appendChild(stage);previewWrap.appendChild(picCanvas);
+document.getElementById('pinPic')?.remove();document.getElementById('pinStage')?.remove();
+const tabDefs=[['Bryar','Bryar'],['Beat','Beat Maker'],['Song','Song Studio'],['Video','Video Studio'],['Picture','Picture Editor'],['Documents','Document Tools'],['Voice','Voiceover'],['AI','AI Help']];
+const sections=[...document.querySelectorAll('main section.panel')];
+function sectionFor(head){return sections.find(sec=>{const h=sec.querySelector('h2');return h&&h.textContent.trim()===head;});}
+const tabBar=document.getElementById('tabBar');
+function showTab(name){
+ tabDefs.forEach(([label,head])=>{const sec=sectionFor(head);if(sec)sec.style.display=(label===name)?'':'none';});
+ [...tabBar.children].forEach(b=>b.classList.toggle('active',b.dataset.tab===name));
+ stage.style.display=(name==='Video')?'':'none';
+ picCanvas.style.display=(name==='Picture'||name==='Documents')?'':'none';
+ previewWrap.style.display=(name==='Video'||name==='Picture'||name==='Documents')?'':'none';
+}
+tabDefs.forEach(([label])=>{const b=document.createElement('button');b.className='secondary';b.dataset.tab=label;b.textContent=label;b.onclick=()=>showTab(label);tabBar.appendChild(b);});
+showTab('Bryar');
+// Suggestion chips like the big AI apps
+const chips=document.createElement('div');chips.className='chips';
+['Make me a beat','Write lyrics','Create song','Play my video','Read the words','What can you do?'].forEach(t=>{const b=document.createElement('button');b.className='secondary';b.textContent=t;b.onclick=()=>bryarReply(t);chips.appendChild(b);});
+document.getElementById('bryarLog').after(chips);
+// Layers for the picture
+const layers={base:true,draw:true,text:true};
+const layerBox=document.createElement('div');
+layerBox.innerHTML='<h3>Layers</h3>'+[['base','Picture'],['draw','Drawings'],['text','Words']].map(([k,l])=>`<div class="layerRow"><label><input type="checkbox" data-layer="${k}" checked> ${l} layer</label></div>`).join('');
+document.getElementById('picStatus').before(layerBox);
+layerBox.querySelectorAll('input').forEach(cb=>cb.onchange=()=>{layers[cb.dataset.layer]=cb.checked;renderPic();});
+const renderPicBase=renderPic;
+renderPic=function(){
+ if(!picImg)return;
+ const crop=document.getElementById('pCrop').value;let W=1080,H=1080;
+ if(crop==='tall'){W=720;H=1280;}else if(crop==='wide'){W=1280;H=720;}else if(crop==='free'){H=Math.round(1080*picImg.naturalHeight/picImg.naturalWidth);}
+ picCanvas.width=W;picCanvas.height=H;
+ if(layers.base){pctx.save();pctx.filter=`brightness(${document.getElementById('pBright').value}%) contrast(${document.getElementById('pContrast').value}%) saturate(${document.getElementById('pColor').value}%) sepia(${document.getElementById('pWarm').value}%)${picGray?' grayscale(100%)':''}`;pctx.translate(W/2,H/2);pctx.rotate(picRot*Math.PI/180);if(picFlip)pctx.scale(-1,1);const sw2=(picRot%180!==0);const tw=sw2?H:W,th=sw2?W:H;const sc=Math.max(tw/picImg.naturalWidth,th/picImg.naturalHeight);pctx.drawImage(picImg,-picImg.naturalWidth*sc/2,-picImg.naturalHeight*sc/2,picImg.naturalWidth*sc,picImg.naturalHeight*sc);pctx.restore();}
+ if(layers.draw)drawStack.forEach(seg=>{pctx.strokeStyle=seg.color;pctx.lineWidth=seg.size;pctx.lineCap='round';pctx.beginPath();seg.points.forEach((pt,i)=>{const x=pt.x*W,y=pt.y*H;i?pctx.lineTo(x,y):pctx.moveTo(x,y);});pctx.stroke();});
+ const t=document.getElementById('pText').value.trim();
+ if(layers.text&&t){pctx.font=`bold ${Math.round(H*0.06)}px Arial`;pctx.textAlign='center';pctx.fillStyle='rgba(0,0,0,.5)';const w=pctx.measureText(t).width+36;pctx.fillRect((W-w)/2,H*0.88,w,H*0.09);pctx.fillStyle='#f5efe0';pctx.fillText(t,W/2,H*0.945);}
+};
+// Bryar opens tabs by command
+const bryarActShell=bryarAct;
+bryarAct=function(cmd){
+ const c=cmd.toLowerCase();
+ const tab=tabDefs.find(([l])=>c.includes('open '+l.toLowerCase())||c.includes('go to '+l.toLowerCase()));
+ if(tab){showTab(tab[0]);return tab[0]+' is open.';}
+ return bryarActShell(cmd);
+};
 </script>
 </body>
 </html>
