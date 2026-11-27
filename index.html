@@ -106,7 +106,14 @@ const sections=[...document.querySelectorAll('main section.panel')];
 function sectionFor(head){return sections.find(sec=>{const h=sec.querySelector('h2');return h&&h.textContent.trim()===head;});}
 const tabBar=document.getElementById('tabBar');
 function showTab(name){
- tabDefs.forEach(([label,head])=>{const sec=sectionFor(head);if(sec)sec.style.display=(label===name)?'':'none';});
+ const beatHeads=['Mixer','Piano','Banjo strings','Bass notes'];
+ sections.forEach(sec=>{
+  const h=sec.querySelector('h2');const head=h?h.textContent.trim():'';
+  let show=false;
+  if(name==='Beat')show=(head===''||beatHeads.includes(head));
+  else{const def=tabDefs.find(d=>d[0]===name);show=def&&head===def[1];}
+  sec.style.display=show?'':'none';
+ });
  [...tabBar.children].forEach(b=>b.classList.toggle('active',b.dataset.tab===name));
  stage.style.display=(name==='Video')?'':'none';
  picCanvas.style.display=(name==='Picture'||name==='Documents')?'':'none';
@@ -715,7 +722,14 @@ const sections=[...document.querySelectorAll('main section.panel')];
 function sectionFor(head){return sections.find(sec=>{const h=sec.querySelector('h2');return h&&h.textContent.trim()===head;});}
 const tabBar=document.getElementById('tabBar');
 function showTab(name){
- tabDefs.forEach(([label,head])=>{const sec=sectionFor(head);if(sec)sec.style.display=(label===name)?'':'none';});
+ const beatHeads=['Mixer','Piano','Banjo strings','Bass notes'];
+ sections.forEach(sec=>{
+  const h=sec.querySelector('h2');const head=h?h.textContent.trim():'';
+  let show=false;
+  if(name==='Beat')show=(head===''||beatHeads.includes(head));
+  else{const def=tabDefs.find(d=>d[0]===name);show=def&&head===def[1];}
+  sec.style.display=show?'':'none';
+ });
  [...tabBar.children].forEach(b=>b.classList.toggle('active',b.dataset.tab===name));
  stage.style.display=(name==='Video')?'':'none';
  picCanvas.style.display=(name==='Picture'||name==='Documents')?'':'none';
