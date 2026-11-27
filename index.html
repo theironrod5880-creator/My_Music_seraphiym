@@ -105,7 +105,7 @@ picCanvas.classList.add('pinned');stage.classList.add('pinned');
 const previewWrap=document.getElementById('previewWrap');
 previewWrap.appendChild(stage);previewWrap.appendChild(picCanvas);
 document.getElementById('pinPic')?.remove();document.getElementById('pinStage')?.remove();
-const tabDefs=[['Bryar','Bryar'],['Beat','Beat Maker'],['Song','Song Studio'],['Video','Video Studio'],['Picture','Picture Editor'],['Documents','Document Tools'],['Voice','Voiceover'],['Vaults','Archival Vaults'],['AEGIS','AEGIS'],['AI','AI Help']];
+const tabDefs=[['Bryar','Bryar'],['Beat','Beat Maker'],['Song','Song Studio'],['Video','Video Studio'],['Picture','Picture Editor'],['Documents','Document Tools'],['Voice','Voiceover'],['Vaults','Archival Vaults'],['AEGIS','AEGIS'],['Browser','Internet Browser'],['AI','AI Help']];
 const sections=[...document.querySelectorAll('main section.panel')];
 function sectionFor(head){return sections.find(sec=>{const h=sec.querySelector('h2');return h&&h.textContent.trim()===head;});}
 const tabBar=document.getElementById('tabBar');
@@ -228,6 +228,18 @@ document.getElementById('bryarBarAsk').onclick=bryarBarSend;
 document.getElementById('bryarBarInput').addEventListener('keydown',e=>{if(e.key==='Enter')bryarBarSend();});
 const bryarSayBar=bryarSay;
 bryarSay=function(t){bryarSayBar(t);const r=document.getElementById('bryarBarReply');if(r)r.textContent=t;};
+
+// ===== Internet Browser tab =====
+const brFrame=document.getElementById('brFrame');
+function brOpen(u){if(!u)return;if(!/^https?:\/\//i.test(u))u='https://'+u;document.getElementById('brUrl').value=u;brFrame.src=u;}
+document.getElementById('brGo').onclick=()=>brOpen(document.getElementById('brUrl').value.trim());
+document.getElementById('brUrl').addEventListener('keydown',e=>{if(e.key==='Enter')brOpen(e.target.value.trim());});
+document.getElementById('brBack').onclick=()=>{try{brFrame.contentWindow.history.back();}catch(e){}};
+document.getElementById('brFwd').onclick=()=>{try{brFrame.contentWindow.history.forward();}catch(e){}};
+document.getElementById('brReload').onclick=()=>{brFrame.src=brFrame.src;};
+document.querySelectorAll('[data-br]').forEach(b=>b.onclick=()=>brOpen(b.dataset.br));
+const bryarActBr=bryarAct;
+bryarAct=function(cmd){const c=cmd.toLowerCase();if(c.startsWith('browse ')){showTab('Browser');brOpen(cmd.slice(7).trim());return 'Browser open.';}if(c.includes('open browser')){showTab('Browser');return 'Browser is open.';}return bryarActBr(cmd);};
 </script>
 </head>
 <body>
@@ -424,6 +436,16 @@ bryarSay=function(t){bryarSayBar(t);const r=document.getElementById('bryarBarRep
 <div class="row"><button id="aegisRun">Run</button></div>
 <pre class="out" id="aegisOut"></pre>
 <p class="small">USB OTG and deeper phone data (files, contacts, calendar) need native Android permissions added to the app one at a time — the web page alone cannot reach them.</p>
+</section>
+
+<section class="panel">
+<h2>Internet Browser</h2>
+<div class="row"><button class="secondary" id="brBack">Back</button><button class="secondary" id="brFwd">Forward</button><button class="secondary" id="brReload">Reload</button></div>
+<label>Address <input id="brUrl" placeholder="example.com"></label>
+<div class="row"><button id="brGo">Go</button></div>
+<div class="row"><button class="secondary" data-br="https://www.google.com">Google</button><button class="secondary" data-br="https://www.youtube.com">YouTube</button><button class="secondary" data-br="https://github.com/theironrod5880-creator">GitHub</button><button class="secondary" data-br="https://suno.com/@borninthemud">Suno</button></div>
+<iframe id="brFrame" style="width:100%;height:55vh;border:1px solid var(--line);border-radius:10px;background:#fff" sandbox="allow-scripts allow-same-origin allow-forms allow-popups"></iframe>
+<p class="small">Some sites refuse to open inside other apps. If a page stays blank, that site is blocking the in-app window.</p>
 </section>
 <section class="panel">
 <h2>AI Help</h2>
@@ -817,7 +839,7 @@ picCanvas.classList.add('pinned');stage.classList.add('pinned');
 const previewWrap=document.getElementById('previewWrap');
 previewWrap.appendChild(stage);previewWrap.appendChild(picCanvas);
 document.getElementById('pinPic')?.remove();document.getElementById('pinStage')?.remove();
-const tabDefs=[['Bryar','Bryar'],['Beat','Beat Maker'],['Song','Song Studio'],['Video','Video Studio'],['Picture','Picture Editor'],['Documents','Document Tools'],['Voice','Voiceover'],['Vaults','Archival Vaults'],['AEGIS','AEGIS'],['AI','AI Help']];
+const tabDefs=[['Bryar','Bryar'],['Beat','Beat Maker'],['Song','Song Studio'],['Video','Video Studio'],['Picture','Picture Editor'],['Documents','Document Tools'],['Voice','Voiceover'],['Vaults','Archival Vaults'],['AEGIS','AEGIS'],['Browser','Internet Browser'],['AI','AI Help']];
 const sections=[...document.querySelectorAll('main section.panel')];
 function sectionFor(head){return sections.find(sec=>{const h=sec.querySelector('h2');return h&&h.textContent.trim()===head;});}
 const tabBar=document.getElementById('tabBar');
@@ -940,6 +962,18 @@ document.getElementById('bryarBarAsk').onclick=bryarBarSend;
 document.getElementById('bryarBarInput').addEventListener('keydown',e=>{if(e.key==='Enter')bryarBarSend();});
 const bryarSayBar=bryarSay;
 bryarSay=function(t){bryarSayBar(t);const r=document.getElementById('bryarBarReply');if(r)r.textContent=t;};
+
+// ===== Internet Browser tab =====
+const brFrame=document.getElementById('brFrame');
+function brOpen(u){if(!u)return;if(!/^https?:\/\//i.test(u))u='https://'+u;document.getElementById('brUrl').value=u;brFrame.src=u;}
+document.getElementById('brGo').onclick=()=>brOpen(document.getElementById('brUrl').value.trim());
+document.getElementById('brUrl').addEventListener('keydown',e=>{if(e.key==='Enter')brOpen(e.target.value.trim());});
+document.getElementById('brBack').onclick=()=>{try{brFrame.contentWindow.history.back();}catch(e){}};
+document.getElementById('brFwd').onclick=()=>{try{brFrame.contentWindow.history.forward();}catch(e){}};
+document.getElementById('brReload').onclick=()=>{brFrame.src=brFrame.src;};
+document.querySelectorAll('[data-br]').forEach(b=>b.onclick=()=>brOpen(b.dataset.br));
+const bryarActBr=bryarAct;
+bryarAct=function(cmd){const c=cmd.toLowerCase();if(c.startsWith('browse ')){showTab('Browser');brOpen(cmd.slice(7).trim());return 'Browser open.';}if(c.includes('open browser')){showTab('Browser');return 'Browser is open.';}return bryarActBr(cmd);};
 </script>
 </body>
 </html>
