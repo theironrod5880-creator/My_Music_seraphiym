@@ -6,9 +6,22 @@ android {
         applicationId 'app.seraphiym.studio'
         minSdk 26
         targetSdk 34
-        versionCode 32
-        versionName '3.2'
+        versionCode 35
+        versionName '3.5'
     }
     buildTypes { release { minifyEnabled false } }
     compileOptions { sourceCompatibility JavaVersion.VERSION_17; targetCompatibility JavaVersion.VERSION_17 }
 }
+tasks.register('decodeIcons') {
+    doLast {
+        ['mdpi','hdpi','xhdpi','xxhdpi','xxxhdpi'].each { d ->
+            def b64 = file("$rootDir/icon-src/ic_launcher-${d}.b64").text.trim()
+            def bytes = b64.decodeBase64()
+            def dir = file("$projectDir/src/main/res/mipmap-${d}")
+            dir.mkdirs()
+            new File(dir, 'ic_launcher.png').bytes = bytes
+            new File(dir, 'ic_launcher_round.png').bytes = bytes
+        }
+    }
+}
+tasks.named('preBuild') { dependsOn 'decodeIcons' }
