@@ -48,6 +48,10 @@ main{flex:1 1 auto;overflow-y:auto}
 .chips{display:flex;gap:6px;flex-wrap:wrap;margin:8px 0}
 .chips button{padding:7px 11px;font-size:13px}
 .layerRow{display:flex;gap:8px;align-items:center;background:var(--panel2);border-radius:8px;padding:7px;margin:5px 0}
+#bryarBar{flex:0 0 auto;background:var(--panel2);border-bottom:1px solid var(--line);padding:8px}
+#bryarBar .row{margin:0}
+#bryarBarReply{font-size:13px;color:var(--muted);margin-top:6px;white-space:pre-wrap}
+
 
 @media(max-width:640px){.grid{grid-template-columns:64px repeat(16,1fr);gap:3px}.step{height:28px}.trackname{font-size:12px}h1{font-size:22px}}
 </style>
@@ -214,6 +218,16 @@ document.getElementById('aegisRun').onclick=()=>{
 };
 const bryarActAegis=bryarAct;
 bryarAct=function(cmd){const c=cmd.toLowerCase();if(c.includes('aegis')||c.includes('scan')){showTab('AEGIS');aegisScan();return 'AEGIS scan done.';}return bryarActAegis(cmd);};
+
+// ===== Bryar present on every page =====
+const bryarBar=document.createElement('div');bryarBar.id='bryarBar';
+bryarBar.innerHTML='<div class="row"><input id="bryarBarInput" placeholder="Bryar is here — ask or command from any page" style="flex:1"><button id="bryarBarAsk">Ask Bryar</button></div><div id="bryarBarReply">Bryar is with you on every page.</div>';
+tabBar.after(bryarBar);
+function bryarBarSend(){const v=document.getElementById('bryarBarInput').value.trim();if(!v)return;document.getElementById('bryarBarInput').value='';bryarReply(v);}
+document.getElementById('bryarBarAsk').onclick=bryarBarSend;
+document.getElementById('bryarBarInput').addEventListener('keydown',e=>{if(e.key==='Enter')bryarBarSend();});
+const bryarSayBar=bryarSay;
+bryarSay=function(t){bryarSayBar(t);const r=document.getElementById('bryarBarReply');if(r)r.textContent=t;};
 </script>
 </head>
 <body>
@@ -916,6 +930,16 @@ document.getElementById('aegisRun').onclick=()=>{
 };
 const bryarActAegis=bryarAct;
 bryarAct=function(cmd){const c=cmd.toLowerCase();if(c.includes('aegis')||c.includes('scan')){showTab('AEGIS');aegisScan();return 'AEGIS scan done.';}return bryarActAegis(cmd);};
+
+// ===== Bryar present on every page =====
+const bryarBar=document.createElement('div');bryarBar.id='bryarBar';
+bryarBar.innerHTML='<div class="row"><input id="bryarBarInput" placeholder="Bryar is here — ask or command from any page" style="flex:1"><button id="bryarBarAsk">Ask Bryar</button></div><div id="bryarBarReply">Bryar is with you on every page.</div>';
+tabBar.after(bryarBar);
+function bryarBarSend(){const v=document.getElementById('bryarBarInput').value.trim();if(!v)return;document.getElementById('bryarBarInput').value='';bryarReply(v);}
+document.getElementById('bryarBarAsk').onclick=bryarBarSend;
+document.getElementById('bryarBarInput').addEventListener('keydown',e=>{if(e.key==='Enter')bryarBarSend();});
+const bryarSayBar=bryarSay;
+bryarSay=function(t){bryarSayBar(t);const r=document.getElementById('bryarBarReply');if(r)r.textContent=t;};
 </script>
 </body>
 </html>
